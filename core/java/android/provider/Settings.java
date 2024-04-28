@@ -7712,6 +7712,21 @@ public final class Settings {
          */
         @Readable
         public static final String EDGE_SCROLLING_HAPTICS_INTENSITY = "edge_scrolling_haptics_intensity";
+        
+        /**
+         * Whether to control brightness from status bar
+         * 0 = 0ff, 1 = on
+         * @hide
+         */
+        public static final String STATUS_BAR_BRIGHTNESS_CONTROL = "status_bar_brightness_control";
+        
+        /**
+         * Whether to unlimit screenrecord filesize
+         * Not for backup - dev option
+         * @hide
+         */
+        @Readable
+        public static final String UNLIMIT_SCREENRECORD = "unlimit_screenrecord";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
