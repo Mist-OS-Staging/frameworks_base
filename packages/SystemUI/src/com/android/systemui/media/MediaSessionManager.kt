@@ -25,6 +25,7 @@ class MediaSessionManager private constructor() {
     interface MediaDataListener {
         fun onPlaybackStateChanged(state: Int) {}
         fun onAlbumArtChanged(drawable: Drawable) {}
+	fun onAppIconChanged(drawable: Drawable) {}
         fun onMediaColorsChanged(color: Int) {}
         fun onMetadataChanged(track: String, artist: String) {}
     }
@@ -36,6 +37,9 @@ class MediaSessionManager private constructor() {
 
     @Volatile
     private var currentAlbumArt: Drawable? = null
+
+    @Volatile
+    private var currentAppIcon: Drawable? = null
 
     @Volatile
     private var currentMediaColor: Int? = null
@@ -57,6 +61,7 @@ class MediaSessionManager private constructor() {
                 it.onPlaybackStateChanged(currentPlaybackState)
                 it.onMetadataChanged(trackTitle, artist)
                 currentAlbumArt?.let { art -> it.onAlbumArtChanged(art) }
+		currentAppIcon?.let { icon -> it.onAppIconChanged(icon) }
                 currentMediaColor?.let { color -> it.onMediaColorsChanged(color) }
             }
         }
@@ -74,6 +79,11 @@ class MediaSessionManager private constructor() {
     fun onAlbumArtChanged(drawable: Drawable) {
         currentAlbumArt = drawable
         listenerManager.notifyOnBackground { it.onAlbumArtChanged(drawable) }
+    }
+
+    fun onAppIconChanged(drawable: Drawable) {
+        currentAppIcon = drawable
+        listenerManager.notifyOnBackground { it.onAppIconChanged(drawable) }
     }
 
     fun onMediaColorsChanged(color: Int) {
