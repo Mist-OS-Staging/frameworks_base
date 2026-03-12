@@ -237,7 +237,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import com.android.internal.util.lunaris.HideAppListUtils;
+import com.android.internal.util.mist.HideAppListUtils;
 
 /**
  * This class is instantiated by the system as a system level service and can be
