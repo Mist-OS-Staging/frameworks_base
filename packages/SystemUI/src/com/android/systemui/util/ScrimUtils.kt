@@ -186,7 +186,12 @@ class ScrimUtils private constructor(context: Context?) {
     fun setQsVisible(visible: Boolean) {
         if (mQsVisible.getAndSet(visible) != visible) {
             listeners.notifyOnMain { it.onQsVisibilityChanged(visible) }
-            if (!visible && mStateIsKeyguard) {
+            if (visible) {
+                // QS panel is expanding — hide depth wallpaper immediately so it
+                // doesn't bleed through on top of the QS tiles.
+                mWallpaperDepthUtils?.hideDepthWallpaper()
+            } else if (mStateIsKeyguard) {
+                // QS panel collapsed back on keyguard — restore depth wallpaper.
                 mainHandler.postDelayed({
                     mWallpaperDepthUtils?.updateDepthWallpaper()
                     mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
