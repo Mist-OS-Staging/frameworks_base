@@ -187,11 +187,9 @@ class ScrimUtils private constructor(context: Context?) {
         if (mQsVisible.getAndSet(visible) != visible) {
             listeners.notifyOnMain { it.onQsVisibilityChanged(visible) }
             if (visible) {
-                // QS panel is expanding — hide depth wallpaper immediately so it
-                // doesn't bleed through on top of the QS tiles.
-                mWallpaperDepthUtils?.hideDepthWallpaper()
+                mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = -100f
             } else if (mStateIsKeyguard) {
-                // QS panel collapsed back on keyguard — restore depth wallpaper.
+                mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = 0f
                 mainHandler.postDelayed({
                     mWallpaperDepthUtils?.updateDepthWallpaper()
                     mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
@@ -310,12 +308,13 @@ class ScrimUtils private constructor(context: Context?) {
     fun setQsExpansion(expansion: Float) {
         val fullyCollapsed = expansion <= 0f
         if (fullyCollapsed) {
+            mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = 0f
             if (mStateIsKeyguard) {
                 mWallpaperDepthUtils?.updateDepthWallpaper()
                 mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
             }
         } else {
-            mWallpaperDepthUtils?.hideDepthWallpaper()
+            mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = -100f
         }
     }
 
