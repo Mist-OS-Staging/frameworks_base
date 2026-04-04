@@ -17,6 +17,7 @@
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
 import android.provider.Settings
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
@@ -147,7 +148,9 @@ constructor(
                 },
                 spans = spans,
                 keys = { sizedTiles[it].tile.spec },
-                modifier = modifier.then(
+                modifier = modifier
+                .animateContentSize()
+                .then(
                     if (useModifiedSpacing) Modifier.padding(horizontal = 10.dp) else Modifier
                 ),
             ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
