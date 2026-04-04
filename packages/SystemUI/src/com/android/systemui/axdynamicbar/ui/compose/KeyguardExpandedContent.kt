@@ -586,17 +586,30 @@ private fun KeyguardMediaSeekBar(
                         val target = (displayFraction * 10_000f).toInt().coerceIn(0, 10_000)
                         bar.progress = target
 
+                        (bar.thumb as? GradientDrawable)?.setColor(accentArgb)
+
                         val alpha = if (isPlaying) 255 else (255 * 0.55f).toInt()
                         bar.thumb?.alpha = alpha
 
-                        val squiggle = (bar.progressDrawable as? LayerDrawable)
+                        val layer = bar.progressDrawable as? LayerDrawable
+
+                        // Re-tint track colors
+                        layer?.findDrawableByLayerId(android.R.id.background)
+                            ?.setTint(trackAlphaArgb)
+                        layer?.findDrawableByLayerId(android.R.id.secondaryProgress)
+                            ?.setTint(
+                                com.android.internal.graphics.ColorUtils
+                                    .setAlphaComponent(accentArgb, 60)
+                            )
+
+                        val squiggle = layer
                             ?.findDrawableByLayerId(android.R.id.progress) as? SquigglyProgress
                         squiggle?.apply {
                             setTint(accentArgb)
                             setAlpha(alpha)
                             animate = isPlaying && !isScrubbing
                         }
-                        (bar.progressDrawable as? LayerDrawable)?.alpha = alpha
+                        layer?.alpha = alpha
                     },
                     modifier = Modifier.fillMaxWidth().height(KeyguardSeekBarHeight),
                 )
