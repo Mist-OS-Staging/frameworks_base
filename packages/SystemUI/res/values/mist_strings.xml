@@ -333,4 +333,12 @@
     <string name="usb_mode_webcam">USB Webcam</string>
     <string name="usb_mode_charging_only">Charging only</string>
     <string name="usb_charging_status">USB charging is on</string>
+
+    <!-- OnePlus-style volume panel -->
+    <string name="volume_panel_style_title">Volume panel style</string>
+    <string name="volume_panel_style_summary">Choose the style for the volume panel</string>
+    <string name="volume_panel_style_default">Default</string>
+    <string name="volume_panel_style_oneplus">OnePlus</string>
+    <string name="volume_panel_system_volume">System volume</string>
+    <string name="volume_panel_settings">Settings</string>
 </resources>
