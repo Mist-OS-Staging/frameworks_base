@@ -24,8 +24,8 @@ class MediaSessionManager private constructor() {
 
     interface MediaDataListener {
         fun onPlaybackStateChanged(state: Int) {}
-        fun onAlbumArtChanged(drawable: Drawable) {}
-	fun onAppIconChanged(drawable: Drawable) {}
+        fun onAlbumArtChanged(drawable: Drawable?) {}
+	fun onAppIconChanged(drawable: Drawable?) {}
         fun onMediaColorsChanged(color: Int) {}
         fun onMetadataChanged(track: String, artist: String) {}
     }
@@ -76,12 +76,12 @@ class MediaSessionManager private constructor() {
         }
     }
 
-    fun onAlbumArtChanged(drawable: Drawable) {
+    fun onAlbumArtChanged(drawable: Drawable?) {
         currentAlbumArt = drawable
         listenerManager.notifyOnBackground { it.onAlbumArtChanged(drawable) }
     }
 
-    fun onAppIconChanged(drawable: Drawable) {
+    fun onAppIconChanged(drawable: Drawable?) {
         currentAppIcon = drawable
         listenerManager.notifyOnBackground { it.onAppIconChanged(drawable) }
     }
@@ -113,3 +113,4 @@ class MediaSessionManager private constructor() {
         }
     }
 }
+
