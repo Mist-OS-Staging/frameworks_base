@@ -54,9 +54,6 @@ public class FileHeaderProvider implements
 
     public FileHeaderProvider(Context context) {
         mContext = context;
-        if (isCustomHeaderEnabled()) {
-            loadHeaderImage();
-        }
     }
 
     @Override
@@ -86,18 +83,6 @@ public class FileHeaderProvider implements
         return Settings.System.getStringForUser(mContext.getContentResolver(),
                 Settings.System.STATUS_BAR_FILE_HEADER_IMAGE,
                 UserHandle.USER_CURRENT);
-    }
-    
-    private boolean isCustomHeaderEnabled() {
-        return Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.STATUS_BAR_CUSTOM_HEADER, 0,
-                UserHandle.USER_CURRENT) == 1;
-    }
-    
-    private String getCustomHeaderPath() {
-        return Settings.System.getStringForUser(mContext.getContentResolver(),
-                    Settings.System.STATUS_BAR_FILE_HEADER_IMAGE,
-                    UserHandle.USER_CURRENT);
     }
 
     @Override
@@ -255,7 +240,6 @@ public class FileHeaderProvider implements
         } catch (Exception e) {
             Log.e(TAG, "Failed to load static header image: " + e.getMessage());
         }
-        mImage = new BitmapDrawable(mContext.getResources(), bitmap);
     }
 
     @Override
