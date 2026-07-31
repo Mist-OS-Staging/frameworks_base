@@ -1,8 +1,6 @@
 package com.android.internal.util.mist;
 
 import android.content.ContentResolver;
-import android.content.Context;
-import android.os.UserHandle;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -19,12 +17,6 @@ public class HideDeveloperStatusUtils {
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED
             ));
 
-    enum Action {
-        ADD,
-        REMOVE,
-        SET
-    }
-
     public static boolean shouldHideDevStatus(
             ContentResolver cr, String packageName, String name) {
         if (cr == null || packageName == null || name == null) {
@@ -39,14 +31,6 @@ public class HideDeveloperStatusUtils {
         return apps.contains(packageName) && settingsToHide.contains(name);
     }
 
-    private static Set<String> getApps(Context context) {
-        if (context == null) {
-            return new HashSet<>();
-        }
-
-        return getApps(context.getContentResolver());
-    }
-
     private static Set<String> getApps(ContentResolver cr) {
         if (cr == null) {
             return new HashSet<>();
@@ -58,53 +42,5 @@ public class HideDeveloperStatusUtils {
         }
 
         return new HashSet<>();
-    }
-
-    private static void putAppsForUser(
-            Context context, String packageName,
-            int userId, Action action) {
-        if (context == null || userId < 0) {
-            return;
-        }
-
-        final Set<String> apps = getApps(context);
-        switch (action) {
-            case ADD:
-                apps.add(packageName);
-                break;
-            case REMOVE:
-                apps.remove(packageName);
-                break;
-            case SET:
-                // Don't change
-                break;
-        }
-
-        Settings.Secure.putStringForUser(context.getContentResolver(),
-                Settings.Secure.HIDE_DEVELOPER_STATUS, String.join(",", apps), userId);
-    }
-
-    public void addApp(Context mContext, String packageName, int userId) {
-        if (mContext == null || packageName == null || userId < 0) {
-            return;
-        }
-
-        putAppsForUser(mContext, packageName, userId, Action.ADD);
-    }
-
-    public void removeApp(Context mContext, String packageName, int userId) {
-        if (mContext == null || packageName == null || userId < 0) {
-            return;
-        }
-
-        putAppsForUser(mContext, packageName, userId, Action.REMOVE);
-    }
-
-    public void setApps(Context mContext, int userId) {
-        if (mContext == null || userId < 0) {
-            return;
-        }
-
-        putAppsForUser(mContext, null, userId, Action.SET);
     }
 }
