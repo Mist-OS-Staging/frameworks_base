@@ -22,6 +22,7 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dump.DumpManager
 import com.android.systemui.shade.ShadeOverlayBoundsListener
+import com.android.systemui.shared.settings.data.repository.SystemSettingsRepository
 import java.io.PrintWriter
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
@@ -357,5 +358,21 @@ constructor(@Background val backgroundScope: CoroutineScope, dumpManager: DumpMa
         pw.println(
             "udfpsTransitionToFullShadeProgress: ${_udfpsTransitionToFullShadeProgress.value}"
         )
+    }
+}
+
+@SysUISingleton
+class DualShadeSwipeGestureRepository
+@Inject
+constructor(
+    private val systemSettingsRepository: SystemSettingsRepository,
+) {
+    val isSwipeGestureEnabled: kotlinx.coroutines.flow.Flow<Boolean> =
+        systemSettingsRepository.boolSetting(
+            name = SETTING_KEY,
+            defaultValue = false,
+        )
+    companion object {
+        const val SETTING_KEY = "qs_swipe_between_panels"
     }
 }

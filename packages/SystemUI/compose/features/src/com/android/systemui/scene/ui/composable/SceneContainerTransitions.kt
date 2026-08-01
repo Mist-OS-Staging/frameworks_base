@@ -697,6 +697,26 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                     )
                 }
             }
+
+            from(
+                Overlays.NotificationsShade,
+                to = Overlays.QuickSettingsShade,
+            ) {
+                spec = androidx.compose.animation.core.tween(durationMillis = 300)
+                translate(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel, com.android.compose.animation.scene.Edge.Start)
+                fade(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel)
+                translate(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel, com.android.compose.animation.scene.Edge.End)
+            }
+
+            from(
+                Overlays.QuickSettingsShade,
+                to = Overlays.NotificationsShade,
+            ) {
+                spec = androidx.compose.animation.core.tween(durationMillis = 300)
+                translate(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel, com.android.compose.animation.scene.Edge.End)
+                fade(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel)
+                translate(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel, com.android.compose.animation.scene.Edge.Start)
+            }
         }
     }
 

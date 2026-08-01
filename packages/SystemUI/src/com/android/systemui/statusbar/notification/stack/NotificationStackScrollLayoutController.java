@@ -2125,10 +2125,41 @@ public class NotificationStackScrollLayoutController implements Dumpable {
     }
 
     class TouchHandler implements Gefingerpoken {
+        private boolean mIsTrackingEmptySpaceHorizontalSwipe = false;
+        private float mEmptySpaceSwipeInitialX = 0f;
+        private float mEmptySpaceSwipeInitialY = 0f;
+
         @Override
         public boolean onInterceptTouchEvent(MotionEvent ev) {
             mView.initDownStates(ev);
             mView.handleEmptySpaceClick(ev);
+
+            if (SceneContainerFlag.isEnabled() && android.provider.Settings.System.getInt(
+                    mView.getContext().getContentResolver(), "qs_swipe_between_panels", 0) == 1) {
+                if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    boolean noChildUnderFinger =
+                        mView.getChildAtRawPosition(ev.getRawX(), ev.getRawY()) == null;
+                    mIsTrackingEmptySpaceHorizontalSwipe = noChildUnderFinger;
+                    mEmptySpaceSwipeInitialX = ev.getX();
+                    mEmptySpaceSwipeInitialY = ev.getY();
+                } else if (ev.getActionMasked() == MotionEvent.ACTION_MOVE
+                        && mIsTrackingEmptySpaceHorizontalSwipe) {
+                    float dx = ev.getX() - mEmptySpaceSwipeInitialX;
+                    float dy = ev.getY() - mEmptySpaceSwipeInitialY;
+                    float touchSlop = android.view.ViewConfiguration.get(
+                            mView.getContext()).getScaledTouchSlop();
+                    if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy) * 1.5f) {
+                        mIsTrackingEmptySpaceHorizontalSwipe = false;
+                        mShadeController.animateExpandQs();
+                        return true;
+                    } else if (Math.abs(dy) > touchSlop) {
+                        mIsTrackingEmptySpaceHorizontalSwipe = false;
+                    }
+                } else if (ev.getActionMasked() == MotionEvent.ACTION_UP
+                        || ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                    mIsTrackingEmptySpaceHorizontalSwipe = false;
+                }
+            }
 
             boolean skipForDragging = SceneContainerFlag.isEnabled() && mView.isBeingDragged()
                     && ev.getAction() == MotionEvent.ACTION_MOVE;

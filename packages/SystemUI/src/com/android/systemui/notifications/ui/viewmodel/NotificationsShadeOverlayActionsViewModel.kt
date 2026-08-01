@@ -23,28 +23,50 @@ import com.android.compose.animation.scene.UserActionResult
 import com.android.compose.animation.scene.UserActionResult.HideOverlay
 import com.android.compose.animation.scene.UserActionResult.ShowOverlay
 import com.android.compose.animation.scene.UserActionResult.ShowOverlay.HideCurrentOverlays
+import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.TopEdgeEndHalf
 import com.android.systemui.scene.ui.viewmodel.UserActionsViewModel
+import com.android.systemui.shade.data.repository.DualShadeSwipeGestureRepository
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.collect
 
 /** Models the UI state for the user actions for navigating to other scenes or overlays. */
-class NotificationsShadeOverlayActionsViewModel @AssistedInject constructor() :
-    UserActionsViewModel() {
+class NotificationsShadeOverlayActionsViewModel @AssistedInject constructor(
+    private val swipeGestureRepository: DualShadeSwipeGestureRepository,
+    private val sceneInteractor: SceneInteractor,
+) : UserActionsViewModel() {
+
+    val isSwipeGestureEnabled = swipeGestureRepository.isSwipeGestureEnabled
+
+    fun forceSwitchToQuickSettings() {
+        sceneInteractor.replaceOverlay(
+            from = Overlays.NotificationsShade,
+            to = Overlays.QuickSettingsShade,
+            loggingReason = "force bypass horizontal swipe",
+        )
+    }
 
     override suspend fun hydrateActions(setActions: (Map<UserAction, UserActionResult>) -> Unit) {
-        setActions(
-            mapOf(
-                Swipe.Up to HideOverlay(Overlays.NotificationsShade),
-                Back to HideOverlay(Overlays.NotificationsShade),
-                Swipe.Down(fromSource = TopEdgeEndHalf) to
-                    ShowOverlay(
-                        Overlays.QuickSettingsShade,
-                        hideCurrentOverlays = HideCurrentOverlays.Some(Overlays.NotificationsShade),
-                    ),
+        swipeGestureRepository.isSwipeGestureEnabled.collect { swipeEnabled ->
+            setActions(
+                buildMap {
+                    put(Swipe.Up, HideOverlay(Overlays.NotificationsShade))
+                    put(Back, HideOverlay(Overlays.NotificationsShade))
+                    put(
+                        Swipe.Down(fromSource = TopEdgeEndHalf),
+                        ShowOverlay(
+                            Overlays.QuickSettingsShade,
+                            hideCurrentOverlays =
+                                HideCurrentOverlays.Some(Overlays.NotificationsShade),
+                        ),
+                    )
+                    if (swipeEnabled) {
+                    }
+                }
             )
-        )
+        }
     }
 
     @AssistedFactory

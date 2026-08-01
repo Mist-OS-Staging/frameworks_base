@@ -19,10 +19,15 @@ package com.android.systemui.shade.ui.composable
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,6 +36,7 @@ import com.android.compose.modifiers.thenIf
 import com.android.systemui.res.R
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
+import kotlin.math.abs
 
 /** Renders a scrim for an overlay. */
 @Composable
@@ -38,6 +44,7 @@ fun ContentScope.OverlayScrim(
     showBackgroundColor: Boolean,
     onClicked: () -> Unit,
     modifier: Modifier = Modifier,
+    onEmptySpaceSwipe: ((isRightSwipe: Boolean) -> Unit)? = null,
 ) {
     val closeOverlayActionLabel = stringResource(R.string.accessibility_close_overlay_action)
     val closeOverlayBoundingBoxDescription =
@@ -55,6 +62,43 @@ fun ContentScope.OverlayScrim(
                 }
                 .fillMaxSize()
                 .thenIf(showBackgroundColor) { Modifier.background(scrimBackgroundColor) }
+                .thenIf(onEmptySpaceSwipe != null) {
+                    Modifier.pointerInput(onEmptySpaceSwipe) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial,
+                            )
+                            var totalX = 0f
+                            var totalY = 0f
+                            var decided = false
+                            val slop = viewConfiguration.touchSlop
+
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                    ?: break
+
+                                if (!change.pressed) break
+
+                                val dx = change.positionChange().x
+                                val dy = change.positionChange().y
+                                totalX += dx
+                                totalY += dy
+
+                                if (!decided) {
+                                    if (abs(totalX) > slop && abs(totalX) > abs(totalY) * 1.5f) {
+                                        decided = true
+                                        onEmptySpaceSwipe?.invoke(totalX > 0f)
+                                        break
+                                    } else if (abs(totalY) > slop) {
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 .clickable(
                     onClick = onClicked,
                     interactionSource = null,
