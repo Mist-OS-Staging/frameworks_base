@@ -28,40 +28,60 @@ import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.BottomEdge
 import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.TopEdgeStartHalf
 import com.android.systemui.scene.ui.viewmodel.UserActionsViewModel
+import com.android.systemui.shade.data.repository.DualShadeSwipeGestureRepository
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 
 /** Models the UI state for the user actions for navigating to other scenes or overlays. */
 class QuickSettingsShadeOverlayActionsViewModel
 @AssistedInject
-constructor(private val editModeViewModel: EditModeViewModel) : UserActionsViewModel() {
+constructor(
+    private val editModeViewModel: EditModeViewModel,
+    private val swipeGestureRepository: DualShadeSwipeGestureRepository,
+) : UserActionsViewModel() {
 
     override suspend fun hydrateActions(setActions: (Map<UserAction, UserActionResult>) -> Unit) {
-        editModeViewModel.isEditing
-            .map { isEditing ->
+        combine(
+            editModeViewModel.isEditing,
+            swipeGestureRepository.isSwipeGestureEnabled,
+        ) { isEditing, swipeEnabled -> Pair(isEditing, swipeEnabled) }
+            .collect { (isEditing, swipeEnabled) ->
                 val hideQuickSettings = HideOverlay(Overlays.QuickSettingsShade)
-                buildMap {
-                    if (isEditing) {
-                        // When editing, the back gesture is handled outside of this view-model.
-                        // TODO(b/418003378): Back should go back to the QS grid layout.
-                        put(Swipe.Up(fromSource = BottomEdge), hideQuickSettings)
-                    } else {
-                        put(Back, hideQuickSettings)
-                        put(Swipe.Up, hideQuickSettings)
-                    }
+                setActions(
+                    buildMap {
+                        if (isEditing) {
+                            // When editing, the back gesture is handled outside of this view-model.
+                            // TODO(b/418003378): Back should go back to the QS grid layout.
+                            put(Swipe.Up(fromSource = BottomEdge), hideQuickSettings)
+                        } else {
+                            put(Back, hideQuickSettings)
+                            put(Swipe.Up, hideQuickSettings)
+                        }
 
-                    put(
-                        Swipe.Down(fromSource = TopEdgeStartHalf),
-                        ShowOverlay(
-                            Overlays.NotificationsShade,
-                            hideCurrentOverlays =
-                                HideCurrentOverlays.Some(Overlays.QuickSettingsShade),
-                        ),
-                    )
-                }
+                        put(
+                            Swipe.Down(fromSource = TopEdgeStartHalf),
+                            ShowOverlay(
+                                Overlays.NotificationsShade,
+                                hideCurrentOverlays =
+                                    HideCurrentOverlays.Some(Overlays.QuickSettingsShade),
+                            ),
+                        )
+
+                        if (swipeEnabled) {
+                            val toNotifications =
+                                ShowOverlay(
+                                    Overlays.NotificationsShade,
+                                    hideCurrentOverlays =
+                                        HideCurrentOverlays.Some(Overlays.QuickSettingsShade),
+                                )
+                            put(Swipe.Start, toNotifications)
+                            put(Swipe.End, toNotifications)
+                        }
+                    }
+                )
             }
-            .collect { actions -> setActions(actions) }
     }
 
     @AssistedFactory
