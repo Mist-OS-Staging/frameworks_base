@@ -31,7 +31,7 @@ import javax.net.ssl.HttpsURLConnection;
  */
 public final class MistUtils {
     private static final String TAG = "MistUtils";
-    private static final String BASE_URL = "https://mist.mistospaste.workers.dev/";
+    private static final String BASE_URL = "https://del.dog";
     private static final String API_URL = String.format("%s/documents", BASE_URL);
     private static Handler handler;
 
