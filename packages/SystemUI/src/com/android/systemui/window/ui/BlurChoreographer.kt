@@ -108,7 +108,7 @@ class DefaultBlurChoreographer(
         if (wasUpdateScheduledForThisFrame) {
             // Update this value so that the frame callback picks up this value when it runs
             if (lastScheduledBlurEffect != blurEffect) {
-                Log.w(TAG, "Multiple blur values emitted in the same frame")
+                blurUtils.prepareBlur(newBlurRadius)
             }
             lastScheduledBlurEffect = blurEffect
             return
