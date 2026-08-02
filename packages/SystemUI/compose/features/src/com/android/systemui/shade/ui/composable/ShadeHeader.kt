@@ -33,6 +33,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +63,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -201,7 +203,10 @@ fun ContentScope.CollapsedShadeHeader(
     // This layout assumes it is globally positioned at (0, 0) and is the same size as the screen.
     CutoutAwareShadeHeader(
         statusBarHeightPx = viewModel.statusBarHeightPx,
-        modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root),
+        modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root)
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
+            },
         startContent = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -291,7 +296,11 @@ fun ContentScope.ExpandedShadeHeader(
 
     val textColor = ShadeHeader.Colors.textColor
 
-    Box(modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root)) {
+    Box(modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root)
+        .pointerInput(Unit) {
+            detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
+        }
+    ) {
         if (viewModel.isPrivacyChipVisible) {
             Box(
                 modifier =
@@ -387,7 +396,9 @@ fun ContentScope.OverlayShadeHeader(
     // This layout assumes it is globally positioned at (0, 0) and is the same width as the screen.
     CutoutAwareShadeHeader(
         statusBarHeightPx = viewModel.statusBarHeightPx,
-        modifier = modifier,
+        modifier = modifier.pointerInput(Unit) {
+            detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
+        },
         startContent = {
             Box(modifier = Modifier.layoutId(ShadeHeader.LayoutId.StartContent)) {
                 ShadeHighlightChip(
