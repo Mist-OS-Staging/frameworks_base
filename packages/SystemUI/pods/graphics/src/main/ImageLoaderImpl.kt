@@ -99,6 +99,11 @@ constructor(
                     configureDecoderForMaximumSize(decoder, info.size, maxWidth, maxHeight)
                     decoder.allocator = allocator
                 }
+            } catch (e: ImageDecoder.DecodeException) {
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "ImageDecoder failed to decode $source, likely unsupported format", e)
+                }
+                return null
             } catch (e: Exception) {
                 // If we're loading an Uri, we can receive any exception from the other side.
                 // So we have to catch them all.
@@ -182,6 +187,11 @@ constructor(
                     configureDecoderForMaximumSize(decoder, info.size, maxWidth, maxHeight)
                     decoder.allocator = allocator
                 }
+            } catch (e: ImageDecoder.DecodeException) {
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "ImageDecoder failed to decode $source, likely unsupported format", e)
+                }
+                return null
             } catch (e: Exception) {
                 // If we're loading from an Uri, any exception can happen on the
                 // other side. We have to catch them all.
