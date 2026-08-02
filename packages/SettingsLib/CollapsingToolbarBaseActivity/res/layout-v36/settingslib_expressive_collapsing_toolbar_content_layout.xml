@@ -48,10 +48,12 @@
                 android:nextFocusForward="@+id/content_frame"
                 android:touchscreenBlocksFocus="false"
                 android:clipChildren="false"
-                app:layout_collapseMode="pin">
+                app:layout_collapseMode="pin" />
 
-                <include layout="@layout/settingslib_expressive_toolbar_buttons"/>
-            </Toolbar>
+            <include layout="@layout/settingslib_expressive_toolbar_buttons"
+                     android:layout_width="wrap_content"
+                     android:layout_height="?attr/actionBarSize"
+                     android:layout_gravity="top|end" />
 
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>

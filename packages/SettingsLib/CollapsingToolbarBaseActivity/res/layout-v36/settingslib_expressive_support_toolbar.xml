@@ -27,7 +27,4 @@
     android:nextFocusForward="@+id/content_frame"
     android:touchscreenBlocksFocus="false"
     android:clipChildren="false"
-    app:layout_collapseMode="pin">
-
-    <include layout="@layout/settingslib_expressive_toolbar_buttons"/>
-</androidx.appcompat.widget.Toolbar>
+    app:layout_collapseMode="pin" />

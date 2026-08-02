@@ -2139,8 +2139,13 @@ public class NotificationStackScrollLayoutController implements Dumpable {
             if (SceneContainerFlag.isEnabled() && android.provider.Settings.System.getInt(
                     mView.getContext().getContentResolver(), "qs_swipe_between_panels", 0) == 1) {
                 if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                    // Record the down position; decide whether to track after we see movement.
-                    mIsTrackingEmptySpaceHorizontalSwipe = (mSwipeHelper.getSwipedView() == null);
+                    // Only track for page-switch if the DOWN lands on empty space —
+                    // i.e. there is NO notification card under the finger.
+                    // If a child notification is under the finger, let mSwipeHelper
+                    // handle swipe-to-dismiss as normal.
+                    boolean noChildUnderFinger =
+                        mView.getChildAtRawPosition(ev.getRawX(), ev.getRawY()) == null;
+                    mIsTrackingEmptySpaceHorizontalSwipe = noChildUnderFinger;
                     mEmptySpaceSwipeInitialX = ev.getX();
                     mEmptySpaceSwipeInitialY = ev.getY();
                 } else if (ev.getActionMasked() == MotionEvent.ACTION_MOVE

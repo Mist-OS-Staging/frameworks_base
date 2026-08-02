@@ -706,7 +706,6 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                 translate(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel, com.android.compose.animation.scene.Edge.Start)
                 fade(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel)
                 translate(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel, com.android.compose.animation.scene.Edge.End)
-                fade(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel)
             }
 
             from(
@@ -717,7 +716,6 @@ class SceneContainerTransitions : SceneContainerTransitionsBuilder {
                 translate(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel, com.android.compose.animation.scene.Edge.End)
                 fade(com.android.systemui.qs.ui.composable.QuickSettingsShade.Elements.Panel)
                 translate(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel, com.android.compose.animation.scene.Edge.Start)
-                fade(com.android.systemui.notifications.ui.composable.NotificationsShade.Elements.Panel)
             }
         }
     }

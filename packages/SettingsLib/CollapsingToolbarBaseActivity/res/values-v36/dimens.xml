@@ -17,7 +17,7 @@
 <resources>
     <!-- One UI style collapsing header height (expanded state). -->
     <!-- One UI uses a very large header, typically ~30% of screen height (260dp-300dp). -->
-    <dimen name="settingslib_oneui_toolbar_layout_height">280dp</dimen>
+    <dimen name="settingslib_oneui_toolbar_layout_height">240dp</dimen>
 
     <!-- Trigger height at which the content scrim becomes visible (right before full collapse). -->
     <dimen name="settingslib_oneui_scrim_visible_height_trigger">72dp</dimen>

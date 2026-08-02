@@ -38,6 +38,11 @@
             style="@style/SettingsLibCollapsingToolbarLayoutStyle.Expressive">
 
             <include layout="@layout/settingslib_expressive_support_toolbar"/>
+
+            <include layout="@layout/settingslib_expressive_toolbar_buttons"
+                     android:layout_width="wrap_content"
+                     android:layout_height="?attr/actionBarSize"
+                     android:layout_gravity="top|end" />
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 

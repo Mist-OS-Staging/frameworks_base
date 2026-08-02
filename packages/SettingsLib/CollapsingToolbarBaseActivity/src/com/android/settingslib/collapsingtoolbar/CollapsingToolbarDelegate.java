@@ -192,46 +192,23 @@ public class CollapsingToolbarDelegate {
             final float collapseRatio =
                     Math.abs(verticalOffset) / (float) totalScrollRange;
 
-            // --- Expanded title animation ---
-            if (mExpandedTitleView != null) {
-                // Phase 1: fade out from 0 to EXPANDED_FADE_END
-                float rawExpanded = 1f - collapseRatio / EXPANDED_FADE_END;
-                float expandedAlpha = mInterpolator.getInterpolation(
-                        Math.max(0f, Math.min(1f, rawExpanded)));
-                mExpandedTitleView.setAlpha(expandedAlpha);
-
-                // Parallax: slight upward translate as we collapse
-                mExpandedTitleView.setTranslationY(-mParallaxPx * collapseRatio);
+            // Animate elevation on scroll
+            if (verticalOffset < 0) {
+                appBarLayout.setElevation(mMaxElevationPx);
+            } else {
+                appBarLayout.setElevation(0f);
             }
 
-            // --- Collapsed title animation ---
-            if (mCollapsedTitleView != null) {
-                // Phase 2: fade in from COLLAPSED_FADE_START to 1.0
-                float rawCollapsed =
-                        (collapseRatio - COLLAPSED_FADE_START) / (1f - COLLAPSED_FADE_START);
-                float collapsedAlpha = mInterpolator.getInterpolation(
-                        Math.max(0f, Math.min(1f, rawCollapsed)));
-                mCollapsedTitleView.setAlpha(collapsedAlpha);
-            }
-
-            // --- Action Buttons animation ---
-            // In One UI, action buttons (like Search) sit next to the large title in the viewing
-            // area when expanded, and slide up into the Toolbar when collapsed.
-            // By translating down exactly totalScrollRange / 2, the buttons sit at H/2 (center).
+            // Animate the buttons if in Expressive theme
             if (mToolbarButtonsContainer != null) {
-                float maxTranslationY = totalScrollRange / 2f;
+                // If it hasn't been measured, don't animate yet
+                if (mToolbarButtonsContainer.getHeight() == 0) return;
+                
+                // Max translation is the distance from the top bar to the expanded area
+                // We want the buttons to sit in the expanded area
+                float maxTranslationY = totalScrollRange * 0.5f;
+                
                 mToolbarButtonsContainer.setTranslationY(maxTranslationY * (1f - collapseRatio));
-            }
-
-            // --- Elevation animation ---
-            // Ramp from 0 → mMaxElevationPx linearly; but only once the large title
-            // has faded out (>= EXPANDED_FADE_END) so there's no elevation while the
-            // expanded state is visible.
-            if (appBarLayout != null) {
-                float elevRatio = (collapseRatio - EXPANDED_FADE_END)
-                        / (1f - EXPANDED_FADE_END);
-                float elevation = mMaxElevationPx * Math.max(0f, Math.min(1f, elevRatio));
-                appBarLayout.setElevation(elevation);
             }
         }
     }
@@ -270,12 +247,6 @@ public class CollapsingToolbarDelegate {
 
     @Nullable
     private FloatingToolbarLayout mFloatingToolbarLayout;
-
-    // One UI custom title views
-    @Nullable
-    private TextView mExpandedTitleView;
-    @Nullable
-    private TextView mCollapsedTitleView;
 
     // Stored listener reference to avoid leak on reinflation
     @Nullable
@@ -367,14 +338,6 @@ public class CollapsingToolbarDelegate {
                 if (useCollapsingToolbar && mIsExpressiveTheme) {
                     actionBar.setHomeAsUpIndicator(R.drawable.settingslib_expressive_icon_back);
                 }
-                // In One UI mode, we show our own custom title views; disable the built-in title
-                // to prevent a duplicate title from appearing in the toolbar.
-                actionBar.setDisplayShowTitleEnabled(!mIsExpressiveTheme);
-            }
-
-            // Inject One UI collapsed title into the native Toolbar.
-            if (mIsExpressiveTheme && mToolbar != null) {
-                injectCollapsedTitleView(mToolbar);
             }
         }
 
@@ -430,134 +393,19 @@ public class CollapsingToolbarDelegate {
 
     /**
      * Sets up the One UI-style title animation on the given CollapsingToolbarLayout.
-     *
-     * <p>This method:
-     * <ol>
-     *   <li>Disables Material's built-in title handling (no more scale+slide).</li>
-     *   <li>Creates and inserts the large {@link #mExpandedTitleView} at bottom-start of the CTL.
-     *   <li>Registers a {@link OneUiOffsetListener} on the {@link AppBarLayout}.
-     * </ol>
-     *
-     * <p>The collapsed title view ({@link #mCollapsedTitleView}) is injected separately after the
-     * Toolbar is initialised (see {@link #injectCollapsedTitleView(View)}).
      */
     private void setupOneUiTitleAnimation(
             @NonNull CollapsingToolbarLayout collapsingToolbarLayout,
             @NonNull AppBarLayout appBarLayout) {
-
-        // Step 1: Disable Material's native scale-slide title animation.
-        collapsingToolbarLayout.setTitleEnabled(false);
-
-        // Step 2: Build and add the expanded (large) title view.
-        mExpandedTitleView = buildExpandedTitleView(collapsingToolbarLayout.getContext());
-        CollapsingToolbarLayout.LayoutParams expandedParams =
-                new CollapsingToolbarLayout.LayoutParams(
-                        CollapsingToolbarLayout.LayoutParams.MATCH_PARENT,
-                        CollapsingToolbarLayout.LayoutParams.WRAP_CONTENT);
-        // Anchor to center — One UI places the large title in the middle of the expanded app bar.
-        expandedParams.gravity = Gravity.CENTER;
-        expandedParams.setCollapseMode(CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PARALLAX);
-        expandedParams.setParallaxMultiplier(0f); // we drive parallax ourselves in the listener
-        collapsingToolbarLayout.addView(mExpandedTitleView, expandedParams);
-
-        // Step 3: Initialise elevation to 0 (we animate it in the listener).
+        // Step 1: Initialise elevation to 0 (we animate it in the listener).
         appBarLayout.setElevation(0f);
 
-        // Step 4: Register the offset listener. Remove any previous one to avoid leaks.
+        // Step 2: Register the offset listener for animating icons.
         if (mOneUiOffsetListener != null) {
             appBarLayout.removeOnOffsetChangedListener(mOneUiOffsetListener);
         }
         mOneUiOffsetListener = new OneUiOffsetListener(appBarLayout.getContext());
         appBarLayout.addOnOffsetChangedListener(mOneUiOffsetListener);
-    }
-
-    /**
-     * Injects the collapsed (small) title view into a Toolbar so it participates in the
-     * One UI cross-fade. Call this after the Toolbar has been added to the view hierarchy.
-     *
-     * @param toolbarView the {@link Toolbar} or {@link androidx.appcompat.widget.Toolbar} view
-     */
-    private void injectCollapsedTitleView(@NonNull View toolbarView) {
-        if (!mIsExpressiveTheme) return;
-
-        mCollapsedTitleView = buildCollapsedTitleView(toolbarView.getContext());
-        mCollapsedTitleView.setAlpha(0f); // starts invisible; fades in as header collapses
-
-        if (toolbarView instanceof Toolbar) {
-            Toolbar tb = (Toolbar) toolbarView;
-            // Clear the toolbar's own title so we don't see duplicates.
-            tb.setTitle(null);
-            // Add our custom title, vertically centered in the toolbar.
-            Toolbar.LayoutParams lp = new Toolbar.LayoutParams(
-                    Toolbar.LayoutParams.WRAP_CONTENT,
-                    Toolbar.LayoutParams.WRAP_CONTENT);
-            lp.gravity = Gravity.CENTER;
-            tb.addView(mCollapsedTitleView, lp);
-        } else if (toolbarView instanceof androidx.appcompat.widget.Toolbar) {
-            androidx.appcompat.widget.Toolbar tb =
-                    (androidx.appcompat.widget.Toolbar) toolbarView;
-            tb.setTitle(null);
-            androidx.appcompat.widget.Toolbar.LayoutParams lp =
-                    new androidx.appcompat.widget.Toolbar.LayoutParams(
-                            androidx.appcompat.widget.Toolbar.LayoutParams.WRAP_CONTENT,
-                            androidx.appcompat.widget.Toolbar.LayoutParams.WRAP_CONTENT);
-            lp.gravity = Gravity.CENTER;
-            tb.addView(mCollapsedTitleView, lp);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // One UI title view builders
-    // -------------------------------------------------------------------------
-
-    /**
-     * Builds the large expanded title {@link TextView} styled for One UI.
-     */
-    @NonNull
-    private TextView buildExpandedTitleView(@NonNull Context context) {
-        TextView tv = new TextView(context);
-        tv.setId(R.id.oneui_expanded_title);
-
-        // One UI expanded title: 34sp, bold, color from ?attr/colorOnSurface
-        float expandedSizeSp = getExpandedTitleSizeSp(context);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, expandedSizeSp);
-        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tv.setTextColor(resolveColorOnSurface(context));
-        tv.setSingleLine(false);
-        tv.setMaxLines(2);
-        tv.setLineSpacing(0f, TOOLBAR_LINE_SPACING_MULTIPLIER);
-        tv.setGravity(Gravity.CENTER);
-
-        // One UI margins: 24 dp start, 20 dp bottom, 24 dp end
-        float density = context.getResources().getDisplayMetrics().density;
-        int marginStartPx = Math.round(24f * density);
-        int marginEndPx = Math.round(24f * density);
-
-        // We apply margins via layout params set by the caller; store them as padding here
-        // so they survive re-measure without requiring a separate LayoutParams subtype.
-        tv.setPaddingRelative(marginStartPx, 0, marginEndPx, 0);
-
-        return tv;
-    }
-
-    /**
-     * Builds the small collapsed title {@link TextView} styled for One UI (injected into Toolbar).
-     */
-    @NonNull
-    private TextView buildCollapsedTitleView(@NonNull Context context) {
-        TextView tv = new TextView(context);
-        tv.setId(R.id.oneui_collapsed_title);
-
-        // One UI collapsed title: 20sp, medium weight, same color
-        float collapsedSizeSp = getCollapsedTitleSizeSp(context);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, collapsedSizeSp);
-        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tv.setTextColor(resolveColorOnSurface(context));
-        tv.setSingleLine(true);
-        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tv.setGravity(Gravity.CENTER);
-
-        return tv;
     }
 
     // -------------------------------------------------------------------------
@@ -648,15 +496,7 @@ public class CollapsingToolbarDelegate {
 
     /** Sets the title on the collapsing layout and delegates to host. */
     public void setTitle(CharSequence title) {
-        if (mIsExpressiveTheme) {
-            // Route to our custom views instead of the CTL's own title system.
-            if (mExpandedTitleView != null) {
-                mExpandedTitleView.setText(title);
-            }
-            if (mCollapsedTitleView != null) {
-                mCollapsedTitleView.setText(title);
-            }
-        } else if (mCollapsingToolbarLayout != null) {
+        if (mCollapsingToolbarLayout != null) {
             mCollapsingToolbarLayout.setTitle(title);
         }
         mHostCallback.setOuterTitle(title);
@@ -781,9 +621,12 @@ public class CollapsingToolbarDelegate {
             actionBar.setDisplayShowTitleEnabled(!mIsExpressiveTheme);
         }
 
-        // Inject the One UI collapsed title into the support toolbar.
-        if (mIsExpressiveTheme && supportToolbar != null) {
-            injectCollapsedTitleView(supportToolbar);
+        // Re-bind toolbar buttons container
+        if (mIsExpressiveTheme && mCollapsingToolbarLayout != null) {
+            View buttonsContainer = mCollapsingToolbarLayout.findViewById(R.id.toolbar_buttons_container);
+            if (buttonsContainer != null) {
+                initToolbarButtonsContainer(buttonsContainer);
+            }
         }
     }
 
@@ -803,8 +646,11 @@ public class CollapsingToolbarDelegate {
             actionBar.setDisplayShowTitleEnabled(!mIsExpressiveTheme);
         }
 
-        if (mIsExpressiveTheme && supportToolbar != null) {
-            injectCollapsedTitleView(supportToolbar);
+        if (mIsExpressiveTheme && mCollapsingToolbarLayout != null) {
+            View buttonsContainer = mCollapsingToolbarLayout.findViewById(R.id.toolbar_buttons_container);
+            if (buttonsContainer != null) {
+                initToolbarButtonsContainer(buttonsContainer);
+            }
         }
     }
 
