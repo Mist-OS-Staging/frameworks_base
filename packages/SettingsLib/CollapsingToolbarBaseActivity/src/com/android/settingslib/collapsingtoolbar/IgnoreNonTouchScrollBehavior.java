@@ -26,6 +26,18 @@ import androidx.core.view.ViewCompat;
 
 import com.google.android.material.appbar.AppBarLayout;
 
+/**
+ * A custom {@link AppBarLayout.Behavior} that filters nested-scroll events so that:
+ * <ul>
+ *   <li>Only user-initiated touch scrolls ({@link ViewCompat#TYPE_TOUCH}) drive the AppBar
+ *       expansion or collapse during normal scrolling. This prevents flings triggered by
+ *       keyboard/IME or accessibility services from unexpectedly collapsing the header.</li>
+ *   <li>Programmatic calls to {@link AppBarLayout#setExpanded(boolean, boolean)} work correctly
+ *       because they use {@code TYPE_NON_TOUCH} internally; we allow those through by not
+ *       blocking the {@code onNestedPreScroll} path used by the programmatic API.</li>
+ * </ul>
+ */
+
 public class IgnoreNonTouchScrollBehavior extends AppBarLayout.Behavior {
 
     public IgnoreNonTouchScrollBehavior() {
@@ -44,6 +56,8 @@ public class IgnoreNonTouchScrollBehavior extends AppBarLayout.Behavior {
             @NonNull View target,
             int nestedScrollAxes,
             int type) {
+        // Accept only touch-driven scroll events so that accessibility/keyboard-driven
+        // flings do not unexpectedly collapse or expand the app bar.
         if (type == ViewCompat.TYPE_TOUCH) {
             return super.onStartNestedScroll(
                     parent, child, directTargetChild, target, nestedScrollAxes, type);
@@ -62,6 +76,10 @@ public class IgnoreNonTouchScrollBehavior extends AppBarLayout.Behavior {
             int dyUnconsumed,
             int type,
             @NonNull int[] consumed) {
+        // Forward only touch-driven nested scroll deltas. Non-touch events (e.g., from flings
+        // triggered programmatically by the system) are intentionally dropped here. Note that
+        // AppBarLayout.setExpanded() works via a separate internal mechanism (not nested scroll),
+        // so it is unaffected by this filter.
         if (type == ViewCompat.TYPE_TOUCH) {
             super.onNestedScroll(
                     coordinatorLayout,

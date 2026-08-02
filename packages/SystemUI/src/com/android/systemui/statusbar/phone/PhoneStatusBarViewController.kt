@@ -25,6 +25,9 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import androidx.annotation.VisibleForTesting
+import android.os.PowerManager
+import android.os.SystemClock
+import lineageos.providers.LineageSettings
 import com.android.systemui.Gefingerpoken
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.DisplayAware
 import com.android.systemui.plugins.DarkIconDispatcher
@@ -135,6 +138,19 @@ private constructor(
                         v.performClick()
                         onClick()
                         return true
+                    }
+
+                    override fun onDoubleTap(e: MotionEvent): Boolean {
+                        val doubleTapEnabled = LineageSettings.System.getInt(
+                            mView.context.contentResolver,
+                            LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE, 1
+                        ) != 0
+                        if (doubleTapEnabled) {
+                            val powerManager = mView.context.getSystemService(PowerManager::class.java)
+                            powerManager?.goToSleep(SystemClock.uptimeMillis())
+                            return true
+                        }
+                        return super.onDoubleTap(e)
                     }
                 },
             )
@@ -338,6 +354,23 @@ private constructor(
         private var initialTouchY = 0f
         private var isIntercepting = false
         private val cachedEvents = mutableListOf<MotionEvent>()
+        private val doubleTapGestureDetector = GestureDetector(
+            mView.context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    val doubleTapEnabled = LineageSettings.System.getInt(
+                        mView.context.contentResolver,
+                        LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE, 1
+                    ) != 0
+                    if (doubleTapEnabled) {
+                        val powerManager = mView.context.getSystemService(PowerManager::class.java)
+                        powerManager?.goToSleep(SystemClock.uptimeMillis())
+                        return true
+                    }
+                    return false
+                }
+            }
+        )
 
         override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
             StatusBarEventForwardingModernization.assertInLegacyMode()
@@ -385,6 +418,7 @@ private constructor(
         override fun onTouchEvent(event: MotionEvent): Boolean {
             StatusBarEventForwardingModernization.assertInLegacyMode()
 
+            doubleTapGestureDetector.onTouchEvent(event)
             onTouch(event)
 
             // If panels aren't enabled, ignore the gesture and don't pass it down to the

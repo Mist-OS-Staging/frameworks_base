@@ -22,6 +22,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.gestures.detectTapGestures
 import android.view.flags.Flags as ViewFlags
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -232,6 +233,7 @@ fun StatusBarRoot(
         }
     var touchableExclusionRegionDisposableHandle: DisposableHandle? = null
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     val touchSlop = LocalViewConfiguration.current.touchSlop
 
     // Let the DesktopStatusBar compose all the UI if [useDesktopStatusBar] is true.
@@ -348,17 +350,31 @@ fun StatusBarRoot(
                 modifier
                     .thenIf(StatusBarEventForwardingModernization.isEnabled) {
                         Modifier.pointerInput(Unit) {
+                                val onDoubleTap: (androidx.compose.ui.geometry.Offset) -> Unit = {
+                                    val doubleTapEnabled = lineageos.providers.LineageSettings.System.getInt(
+                                        context.contentResolver,
+                                        lineageos.providers.LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE, 1
+                                    ) != 0
+                                    if (doubleTapEnabled) {
+                                        val powerManager = context.getSystemService(android.os.PowerManager::class.java)
+                                        powerManager?.goToSleep(android.os.SystemClock.uptimeMillis())
+                                    }
+                                }
                                 if (ViewFlags.scrollToTop()) {
-                                    detectTapGesturesStrict(
+                                    detectTapGestures(
                                         onTap = { statusBarViewModel.onStatusBarTap(it.x) },
                                         onLongPress = {
                                             statusBarViewModel.onStatusBarLongPressed()
                                         },
+                                        onDoubleTap = onDoubleTap
                                     )
                                 } else {
-                                    detectLongPressGesture {
+                                    detectTapGestures(
+                                        onLongPress = {
                                         statusBarViewModel.onStatusBarLongPressed()
-                                    }
+                                     },
+                                        onDoubleTap = onDoubleTap
+                                    )
                                 }
                             }
                             .forwardDragAndSwipeToShadeRootView(shadeWindowRootView, touchSlop) {

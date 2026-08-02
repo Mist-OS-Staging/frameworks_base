@@ -2125,10 +2125,44 @@ public class NotificationStackScrollLayoutController implements Dumpable {
     }
 
     class TouchHandler implements Gefingerpoken {
+        private boolean mIsTrackingEmptySpaceHorizontalSwipe = false;
+        private float mEmptySpaceSwipeInitialX = 0f;
+        private float mEmptySpaceSwipeInitialY = 0f;
+
         @Override
         public boolean onInterceptTouchEvent(MotionEvent ev) {
             mView.initDownStates(ev);
             mView.handleEmptySpaceClick(ev);
+
+            // Empty space horizontal swipe detection — must happen BEFORE mSwipeHelper
+            // gets a chance to claim the gesture, otherwise it will always win on horizontal moves.
+            if (SceneContainerFlag.isEnabled() && android.provider.Settings.System.getInt(
+                    mView.getContext().getContentResolver(), "qs_swipe_between_panels", 0) == 1) {
+                if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    // Record the down position; decide whether to track after we see movement.
+                    mIsTrackingEmptySpaceHorizontalSwipe = (mSwipeHelper.getSwipedView() == null);
+                    mEmptySpaceSwipeInitialX = ev.getX();
+                    mEmptySpaceSwipeInitialY = ev.getY();
+                } else if (ev.getActionMasked() == MotionEvent.ACTION_MOVE
+                        && mIsTrackingEmptySpaceHorizontalSwipe) {
+                    float dx = ev.getX() - mEmptySpaceSwipeInitialX;
+                    float dy = ev.getY() - mEmptySpaceSwipeInitialY;
+                    float touchSlop = android.view.ViewConfiguration.get(
+                            mView.getContext()).getScaledTouchSlop();
+                    if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy) * 1.5f) {
+                        // Clear horizontal swipe on empty space — switch to Quick Settings.
+                        mIsTrackingEmptySpaceHorizontalSwipe = false;
+                        mShadeController.animateExpandQs();
+                        return true; // don't intercept; let the gesture complete naturally
+                    } else if (Math.abs(dy) > touchSlop) {
+                        // Moved vertically first — not our gesture.
+                        mIsTrackingEmptySpaceHorizontalSwipe = false;
+                    }
+                } else if (ev.getActionMasked() == MotionEvent.ACTION_UP
+                        || ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                    mIsTrackingEmptySpaceHorizontalSwipe = false;
+                }
+            }
 
             boolean skipForDragging = SceneContainerFlag.isEnabled() && mView.isBeingDragged()
                     && ev.getAction() == MotionEvent.ACTION_MOVE;
@@ -2275,7 +2309,6 @@ public class NotificationStackScrollLayoutController implements Dumpable {
             if (lockscreenExpandWantsIt) {
                 mView.startDraggingOnLockscreen();
             }
-            // NOTE: the order of these is important. If reversed, onScrollTouch will reset on an
             // UP event, causing horizontalSwipeWantsIt to be set to true on vertical swipes.
             final boolean horizontalSwipeWantsIt = mLongPressedView == null
                     && !mView.isBeingDragged()

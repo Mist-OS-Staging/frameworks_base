@@ -141,20 +141,23 @@ constructor(
 
     override fun expandNotificationsShade(loggingReason: String, transitionKey: TransitionKey?) {
         if (shadeModeInteractor.isDualShade) {
-            // Hide all overlays that can not be displayed with the notifications overlay.
-            notificationsMutuallyExclusiveOverlays.forEach {
-                sceneInteractor.hideOverlay(
-                    overlay = it,
+            val currentOverlays = sceneInteractor.currentOverlays.value
+            val fromOverlay = notificationsMutuallyExclusiveOverlays.firstOrNull { it in currentOverlays }
+            if (fromOverlay != null) {
+                sceneInteractor.replaceOverlay(
+                    from = fromOverlay,
+                    to = Overlays.NotificationsShade,
                     loggingReason = loggingReason,
                     transitionKey = transitionKey,
                 )
-            }
+            } else {
             // Expand the notifications shade.
             sceneInteractor.showOverlay(
                 overlay = Overlays.NotificationsShade,
                 loggingReason = loggingReason,
                 transitionKey = transitionKey,
             )
+          }
         } else {
             changeSingleShadeScene(Scenes.Shade, transitionKey, loggingReason)
         }
@@ -179,20 +182,23 @@ constructor(
 
     override fun expandQuickSettingsShade(loggingReason: String, transitionKey: TransitionKey?) {
         if (shadeModeInteractor.isDualShade) {
-            // Hide all overlays that cannot be displayed with the quick settings overlays.
-            qsMutuallyExclusiveOverlays.forEach {
-                sceneInteractor.hideOverlay(
-                    overlay = it,
+            val currentOverlays = sceneInteractor.currentOverlays.value
+            val fromOverlay = qsMutuallyExclusiveOverlays.firstOrNull { it in currentOverlays }
+            if (fromOverlay != null) {
+                sceneInteractor.replaceOverlay(
+                    from = fromOverlay,
+                    to = Overlays.QuickSettingsShade,
                     loggingReason = loggingReason,
                     transitionKey = transitionKey,
                 )
-            }
+            } else {
             // Expand the quick settings shade.
             sceneInteractor.showOverlay(
                 overlay = Overlays.QuickSettingsShade,
                 loggingReason = loggingReason,
                 transitionKey = transitionKey,
             )
+          }
         } else {
             val toScene =
                 if (shadeModeInteractor.isSplitShade) Scenes.Shade else Scenes.QuickSettings

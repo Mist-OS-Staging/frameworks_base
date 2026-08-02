@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2024 The Android Open Source Project
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<resources>
+    <!-- One UI style collapsing header height (expanded state). -->
+    <!-- One UI uses a very large header, typically ~30% of screen height (260dp-300dp). -->
+    <dimen name="settingslib_oneui_toolbar_layout_height">280dp</dimen>
+
+    <!-- Trigger height at which the content scrim becomes visible (right before full collapse). -->
+    <dimen name="settingslib_oneui_scrim_visible_height_trigger">72dp</dimen>
+
+    <!-- Large expanded title text size (matches One UI huge header text). -->
+    <!-- Declared in dp to prevent scaling with system font size setting. -->
+    <dimen name="settingslib_oneui_expanded_title_size">36dp</dimen>
+
+    <!-- Compact collapsed title text size (matches One UI ~20 sp). -->
+    <dimen name="settingslib_oneui_collapsed_title_size">20dp</dimen>
+
+    <!-- Horizontal padding for the expanded title (matches One UI 24 dp start margin). -->
+    <dimen name="settingslib_oneui_expanded_title_margin_start">24dp</dimen>
+
+    <!-- Bottom padding for the expanded title (One UI 20 dp spacing from bottom of header). -->
+    <dimen name="settingslib_oneui_expanded_title_margin_bottom">20dp</dimen>
+</resources>

@@ -24,8 +24,10 @@ import com.android.compose.animation.scene.UserActionResult.HideOverlay
 import com.android.compose.animation.scene.UserActionResult.ShowOverlay
 import com.android.compose.animation.scene.UserActionResult.ShowOverlay.HideCurrentOverlays
 import com.android.systemui.qs.panels.ui.viewmodel.EditModeViewModel
+import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.BottomEdge
+import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.TopEdgeEndHalf
 import com.android.systemui.scene.ui.viewmodel.SceneContainerArea.TopEdgeStartHalf
 import com.android.systemui.scene.ui.viewmodel.UserActionsViewModel
 import com.android.systemui.shade.data.repository.DualShadeSwipeGestureRepository
@@ -40,7 +42,18 @@ class QuickSettingsShadeOverlayActionsViewModel
 constructor(
     private val editModeViewModel: EditModeViewModel,
     private val swipeGestureRepository: DualShadeSwipeGestureRepository,
+    private val sceneInteractor: SceneInteractor,
 ) : UserActionsViewModel() {
+
+    val isSwipeGestureEnabled = swipeGestureRepository.isSwipeGestureEnabled
+
+    fun forceSwitchToNotifications() {
+        sceneInteractor.replaceOverlay(
+            from = Overlays.QuickSettingsShade,
+            to = Overlays.NotificationsShade,
+            loggingReason = "force bypass horizontal swipe",
+        )
+    }
 
     override suspend fun hydrateActions(setActions: (Map<UserAction, UserActionResult>) -> Unit) {
         combine(
@@ -70,14 +83,9 @@ constructor(
                         )
 
                         if (swipeEnabled) {
-                            val toNotifications =
-                                ShowOverlay(
-                                    Overlays.NotificationsShade,
-                                    hideCurrentOverlays =
-                                        HideCurrentOverlays.Some(Overlays.QuickSettingsShade),
-                                )
-                            put(Swipe.Start, toNotifications)
-                            put(Swipe.End, toNotifications)
+                            // Horizontal empty-space swipes are handled by OverlayScrim's
+                            // onEmptySpaceSwipe callback, which calls forceSwitchToNotifications().
+                            // Adding Swipe.Left/Right here would cause a double-transition.
                         }
                     }
                 )

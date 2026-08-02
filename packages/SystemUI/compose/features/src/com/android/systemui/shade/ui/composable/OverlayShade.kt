@@ -71,6 +71,7 @@ fun ContentScope.OverlayShade(
     enableTransparency: Boolean,
     onScrimClicked: () -> Unit,
     modifier: Modifier = Modifier,
+    onEmptySpaceSwipe: ((isRightSwipe: Boolean) -> Unit)? = null,
     onBackgroundPlaced: (bounds: Rect, topCornerRadius: Float, bottomCornerRadius: Float) -> Unit =
         { _, _, _ ->
         },
@@ -88,7 +89,11 @@ fun ContentScope.OverlayShade(
         }
 
     Box(modifier) {
-        OverlayScrim(showBackgroundColor = enableTransparency, onClicked = onScrimClicked)
+        OverlayScrim(
+            showBackgroundColor = enableTransparency,
+            onClicked = onScrimClicked,
+            onEmptySpaceSwipe = onEmptySpaceSwipe,
+        )
 
         Box(
             modifier =

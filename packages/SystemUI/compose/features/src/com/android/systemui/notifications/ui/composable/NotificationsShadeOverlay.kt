@@ -23,6 +23,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -67,6 +72,7 @@ import com.android.systemui.statusbar.notification.stack.ui.view.NotificationScr
 import dagger.Lazy
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @SysUISingleton
 class NotificationsShadeOverlay
@@ -118,6 +124,9 @@ constructor(
                 null
             }
 
+        val isSwipeGestureEnabled by
+            actionsViewModel.isSwipeGestureEnabled.collectAsStateWithLifecycle(initialValue = false)
+
         DisposableEffectWithLifecycle(Unit) {
             onDispose { viewModel.onShadeOverlayBoundsChanged(null) }
         }
@@ -138,6 +147,10 @@ constructor(
             enableTransparency = viewModel.isTransparencyEnabled,
             modifier = modifier.blur(with(LocalDensity.current) { animatedBlurRadiusPx.toDp() }),
             onScrimClicked = viewModel::onScrimClicked,
+            onEmptySpaceSwipe = if (isSwipeGestureEnabled) { isRightSwipe ->
+                // Both left and right swipes on the empty scrim switch to QuickSettings
+                actionsViewModel.forceSwitchToQuickSettings()
+            } else null,
             onBackgroundPlaced = { bounds, _, _ -> viewModel.onShadeOverlayBoundsChanged(bounds) },
             header = {
                 if (viewModel.showHeader) {

@@ -17,9 +17,13 @@
 package com.android.systemui.shade.ui.viewmodel
 
 import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.ViewGroup
+import lineageos.providers.LineageSettings
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.IntRect
@@ -84,6 +88,7 @@ constructor(
     private val dualShadeEducationInteractor: DualShadeEducationInteractor,
     desktopInteractor: DesktopInteractor,
     @ShadeDisplayAware systemBarUtilsState: SystemBarUtilsState,
+    private val context: Context,
     @Assisted private val ignoreTestHarness: Boolean,
 ) : HydratedActivatable() {
 
@@ -257,6 +262,18 @@ constructor(
         bounds: IntRect,
     ) {
         dualShadeEducationInteractor.onDualShadeEducationElementBoundsChange(element, bounds)
+    }
+
+    fun onDoubleTapToSleep() {
+        val doubleTapEnabled = LineageSettings.System.getInt(
+            context.contentResolver,
+            LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE,
+            1
+        ) != 0
+        if (doubleTapEnabled) {
+            val powerManager = context.getSystemService(PowerManager::class.java)
+            powerManager?.goToSleep(SystemClock.uptimeMillis())
+        }
     }
 
     @AssistedFactory

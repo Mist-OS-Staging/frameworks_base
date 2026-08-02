@@ -1493,8 +1493,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         final int action = event.getAction();
         final int x = (int) event.getRawX();
         final int y = (int) event.getRawY();
-        mQuickQsOffsetHeight = mContext.getResources().getDimensionPixelSize(
-                com.android.internal.R.dimen.quick_qs_offset_height);
+        mQuickQsOffsetHeight = com.android.internal.policy.SystemBarUtils.getStatusBarHeight(mContext);
         if (action == MotionEvent.ACTION_DOWN) {
             if (y < mQuickQsOffsetHeight) {
                 mLinger = 0;

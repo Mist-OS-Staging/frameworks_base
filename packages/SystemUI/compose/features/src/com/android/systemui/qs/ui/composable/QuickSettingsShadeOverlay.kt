@@ -168,6 +168,9 @@ constructor(
                 notificationsPlaceholderViewModelFactory.create(Overlays.QuickSettingsShade)
             }
 
+        val isSwipeGestureEnabled by
+            actionsViewModel.isSwipeGestureEnabled.collectAsStateWithLifecycle(initialValue = false)
+
         val showBrightnessMirror =
             quickSettingsContainerViewModel.brightnessSliderViewModel.showMirror
         val contentAlphaFromBrightnessMirror by
@@ -205,6 +208,10 @@ constructor(
                 statusBarHeightPx = contentViewModel.statusBarHeightPx,
                 enableTransparency = contentViewModel.isTransparencyEnabled,
                 onScrimClicked = contentViewModel::onScrimClicked,
+                onEmptySpaceSwipe = if (isSwipeGestureEnabled) { isRightSwipe ->
+                    // Both left and right swipes on the empty scrim switch to Notifications
+                    actionsViewModel.forceSwitchToNotifications()
+                } else null,
                 onBackgroundPlaced = { bounds, topCornerRadius, bottomCornerRadius ->
                     contentViewModel.onShadeOverlayBoundsChanged(bounds)
                     contentViewModel.onPanelShapeInWindowChanged(
