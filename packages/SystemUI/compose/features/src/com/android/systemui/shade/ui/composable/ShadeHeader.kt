@@ -204,6 +204,7 @@ fun ContentScope.CollapsedShadeHeader(
     CutoutAwareShadeHeader(
         statusBarHeightPx = viewModel.statusBarHeightPx,
         modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root)
+            .padding(top = 5.dp)
             .pointerInput(Unit) {
                 detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
             },
@@ -396,9 +397,11 @@ fun ContentScope.OverlayShadeHeader(
     // This layout assumes it is globally positioned at (0, 0) and is the same width as the screen.
     CutoutAwareShadeHeader(
         statusBarHeightPx = viewModel.statusBarHeightPx,
-        modifier = modifier.pointerInput(Unit) {
-            detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
-        },
+        modifier = modifier
+            .padding(top = 5.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = { viewModel.onDoubleTapToSleep() })
+            },
         startContent = {
             Box(modifier = Modifier.layoutId(ShadeHeader.LayoutId.StartContent)) {
                 ShadeHighlightChip(
