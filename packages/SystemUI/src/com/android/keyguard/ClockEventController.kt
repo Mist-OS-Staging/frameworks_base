@@ -71,6 +71,7 @@ import com.android.systemui.res.R as SysuiR
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.settings.UserTracker
 import com.android.systemui.shared.regionsampling.RegionSampler
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.policy.BatteryController
 import com.android.systemui.statusbar.policy.BatteryController.BatteryStateChangeCallback
 import com.android.systemui.statusbar.policy.ConfigurationController
@@ -115,6 +116,7 @@ constructor(
     private val dozingToLockscreenViewModel: Lazy<DozingToLockscreenTransitionViewModel>,
     // TODO b/444332073 - We should move all clock classes to the display subcomponent instead.
     private val displayWindowPropertiesRepository: DisplayWindowPropertiesRepository,
+    private val shadeInteractor: Lazy<ShadeInteractor>,
 ) {
     val logger = Logger(clockBuffers.infraMessageBuffer, TAG)
     var isPreview: Boolean = false
@@ -249,6 +251,7 @@ constructor(
     private var isRegistered = false
     private val regionSamplingEnabled = featureFlags.isEnabled(REGION_SAMPLING)
     private var largeClockDisplayId = Display.DEFAULT_DISPLAY
+    private var isShadeExpanded = false
 
     val dozeAmount = MutableStateFlow(0f)
     val smallClockBounds = MutableStateFlow<VRectF>(VRectF.ZERO)
@@ -278,8 +281,8 @@ constructor(
 
         clock?.run {
             logger.i({ "updateColors(isThemeDark = $bool1)" }) { bool1 = isDarkTheme }
-            smallClock.updateTheme { it.copy(isDarkTheme = isDarkTheme) }
-            largeClock.updateTheme { it.copy(isDarkTheme = isDarkTheme) }
+            smallClock.updateTheme { it.copy(isDarkTheme = isDarkTheme).apply { this.isShadeExpanded = this@ClockEventController.isShadeExpanded } }
+            largeClock.updateTheme { it.copy(isDarkTheme = isDarkTheme).apply { this.isShadeExpanded = this@ClockEventController.isShadeExpanded } }
         }
     }
 
@@ -479,6 +482,7 @@ constructor(
                 listenForAnyStateToLockscreenTransition(this)
                 listenForAnyStateToDozingTransition(this)
                 listenForDozingToLockscreen(this)
+                listenForShadeExpansion(this)
             }
         }
     }
@@ -664,6 +668,20 @@ constructor(
     private fun listenForDozingToLockscreen(scope: CoroutineScope): Job {
         return scope.launch {
             dozingToLockscreenViewModel.get().clockDozeAmount.collect { handleDoze(it) }
+        }
+    }
+
+    @DeprecatedSysuiVisibleForTesting
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    fun listenForShadeExpansion(scope: CoroutineScope): Job {
+        return scope.launch {
+            shadeInteractor.get().anyExpansion.collect { expansion ->
+                val expanded = expansion > 0.01f
+                if (isShadeExpanded != expanded) {
+                    isShadeExpanded = expanded
+                    updateColors()
+                }
+            }
         }
     }
 

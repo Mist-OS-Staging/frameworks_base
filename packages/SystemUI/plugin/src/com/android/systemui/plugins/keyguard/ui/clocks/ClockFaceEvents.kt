@@ -66,11 +66,18 @@ data class ThemeConfig(
      */
     val seedColor: Int?,
 ) {
+    var isShadeExpanded: Boolean = false
+
     fun getDefaultColor(context: Context): Int {
-        return when {
+        val baseColor = when {
             seedColor != null -> seedColor
             isDarkTheme -> context.resources.getColor(android.R.color.system_accent1_100)
             else -> context.resources.getColor(android.R.color.system_accent2_600)
+        }
+        return if (isShadeExpanded && seedColor == null) {
+            com.android.internal.graphics.ColorUtils.blendARGB(baseColor, android.graphics.Color.BLACK, 0.15f)
+        } else {
+            baseColor
         }
     }
 
