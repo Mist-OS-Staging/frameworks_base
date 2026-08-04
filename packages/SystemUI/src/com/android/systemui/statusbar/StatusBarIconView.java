@@ -39,7 +39,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Trace;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.util.FloatProperty;
@@ -183,7 +182,6 @@ public class StatusBarIconView extends AnimatedImageView implements StatusIconDi
     private boolean mShowsConversation;
     private float mDozeAmount;
     private final NotificationDozeHelper mDozer;
-    private boolean mNewIconStyle;
 
     public StatusBarIconView(Context context, String slot, StatusBarNotification sbn) {
         this(context, slot, sbn, false);
@@ -403,10 +401,6 @@ public class StatusBarIconView extends AnimatedImageView implements StatusIconDi
         }
     }
 
-    public void setIconStyle(boolean iconStyle) {
-        mNewIconStyle = iconStyle;
-    }
-
     /**
      * Returns whether the set succeeded.
      */
@@ -518,19 +512,6 @@ public class StatusBarIconView extends AnimatedImageView implements StatusIconDi
 
     @Nullable
     private Drawable loadDrawable(Context context, StatusBarIcon statusBarIcon) {
-        Drawable icon;
-        String pkgName = statusBarIcon.pkg;
-        try {
-            icon = pkgName.contains("systemui") || !mNewIconStyle ?
-                                getIcon(context, statusBarIcon)
-                               : context.getPackageManager().getApplicationIcon(pkgName);
-        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-            icon = getIcon(context, statusBarIcon);
-        }
-        return icon;
-    }
-
-    private Drawable getIcon(Context context, StatusBarIcon statusBarIcon) {
         if (statusBarIcon.preloadedIcon != null) {
             Drawable.ConstantState cached = statusBarIcon.preloadedIcon.getConstantState();
             if (cached != null) {
