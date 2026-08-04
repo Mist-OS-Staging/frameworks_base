@@ -25,6 +25,8 @@ import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_WIFI
 import android.annotation.Nullable;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -102,6 +104,8 @@ public class IconManager implements DemoModeCommandReceiver {
     private boolean mIsInDemoMode;
     protected DemoStatusIcons mDemoStatusIcons;
 
+    private final boolean mNewIconStyle;
+
     protected ArrayList<String> mBlockList = new ArrayList<>();
 
     public IconManager(
@@ -120,6 +124,9 @@ public class IconManager implements DemoModeCommandReceiver {
         mLocation = location;
         mKairosNetwork = kairosNetwork;
         mAppScope = appScope;
+
+        mNewIconStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
+            Settings.System.STATUSBAR_COLORED_ICONS, 0, UserHandle.USER_CURRENT) == 1;
 
         reloadDimens();
 
@@ -190,6 +197,7 @@ public class IconManager implements DemoModeCommandReceiver {
     protected StatusBarIconView addIcon(int index, String slot, boolean blocked,
             StatusBarIcon icon) {
         StatusBarIconView view = onCreateStatusBarIconView(slot, blocked);
+        view.setIconStyle(mNewIconStyle);
         view.set(icon);
         mGroup.addView(view, index, onCreateLayoutParams(icon.shape));
         return view;
