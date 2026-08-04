@@ -133,4 +133,7 @@
     <string name="quick_settings_smart_pixels_off">Off</string>
     <string name="smart_pixels_percent_label">Pixel percentage</string>
     <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
+
+    <!-- System Theme Re-evaluation Toast -->
+    <string name="reevaluating_system_theme">Re-evaluating system theme.. Please wait for a few seconds</string>
 </resources>
