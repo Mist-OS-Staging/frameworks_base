@@ -1083,4 +1083,6 @@ interface IActivityManager {
     boolean isThreeFingersSwipeActive();
     void setThreeFingersSwipeActive(boolean active);
     void setThreeGestureStateActive(boolean active);
+
+    void releaseMemory(int minAdj, int maxKillCount, boolean includeUIProcesses, boolean skipCamera);
 }
