@@ -22,6 +22,7 @@ import android.app.WindowConfiguration
 import android.content.ContentResolver
 import android.content.Context
 import android.database.ContentObserver
+import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -85,7 +86,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
         val autoHide: Boolean,
         val denyListed: Boolean,
         val hideForHun: Boolean,
-        val showChip: Boolean,
+        val chipStyle: Int,
         val position: Int,
         val visibilityModel: VisibilityModel,
     )
@@ -130,7 +131,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                             autoHide = false,
                             denyListed = false,
                             hideForHun = false,
-                            showChip = false,
+                            chipStyle = 0,
                             position = context.contentResolver.readClockPosition(),
                             visibilityModel = VisibilityModel(View.GONE, true),
                         )
@@ -197,13 +198,13 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                                             position = context.contentResolver.readClockPosition()
                                         )
                                     statusBarClockChipUri -> {
-                                        val enabled =
+                                        val chipStyle =
                                             Settings.System.getIntForUser(context.contentResolver,
                                                 Settings.System.STATUSBAR_CLOCK_CHIP, 0,
                                                 UserHandle.USER_CURRENT
-                                            ) == 1
+                                            )
                                         current.copy(
-                                            showChip = enabled
+                                            chipStyle = chipStyle
                                         )
                                     }
                                     else -> current
@@ -309,7 +310,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                     }
 
                     launch {
-                        var lastChipEnabled: Boolean? = null
+                        var lastChipStyle: Int? = null
                         var lastClockPosition: Int? = null
 
                         clockState.collect { state ->
@@ -348,12 +349,12 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                             activeClock?.adjustVisibility(finalVisibility)
 
                             // Only touch chip UI when needed
-                            val chipNeedsUpdate = (lastChipEnabled != state.showChip)
+                            val chipNeedsUpdate = (lastChipStyle != state.chipStyle)
                                         || (lastClockPosition != state.position)
                             if (chipNeedsUpdate) {
                                 applyClockChip(
                                     context = context,
-                                    enabled = state.showChip,
+                                    chipStyle = state.chipStyle,
                                     activeClock = activeClock,
                                     leftClock = leftClock,
                                     centerClock = centerClock,
@@ -362,7 +363,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                                     centerPaddingInit = centerPaddingInit,
                                     rightPaddingInit = rightPaddingInit
                                 )
-                                lastChipEnabled = state.showChip
+                                lastChipStyle = state.chipStyle
                                 lastClockPosition = state.position
                             }
                         }
@@ -486,7 +487,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
 
     private fun applyClockChip(
         context: Context,
-        enabled: Boolean,
+        chipStyle: Int,
         activeClock: Clock,
         leftClock: Clock,
         centerClock: Clock,
@@ -499,13 +500,44 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
             if (clock == null || padding == null) return
             clock.setBackgroundResource(0)
             clock.setPaddingRelative(padding.start, padding.top, padding.end, padding.bottom)
+            // Reset text color - Clock will handle it via DarkIconDispatcher
         }
 
-        fun apply(clock: Clock) {
-            val hPad = dpToPx(context, 10)
-            val vPad = dpToPx(context, 2)
-            clock.setBackgroundResource(R.drawable.sb_date_bg)
-            clock.setPaddingRelative(hPad, vPad, hPad, vPad)
+        fun apply(clock: Clock, style: Int) {
+            val clockBackgrounds = listOf(
+                R.drawable.sb_date_bg1,
+                R.drawable.sb_date_bg2,
+                R.drawable.sb_date_bg3,
+                R.drawable.sb_date_bg4,
+                R.drawable.sb_date_bg5,
+                R.drawable.sb_date_bg6,
+                R.drawable.sb_date_bg7,
+                R.drawable.sb_date_bg8,
+                R.drawable.sb_date_bg9,
+                R.drawable.sb_date_bg10,
+                R.drawable.sb_date_bg11,
+                R.drawable.sb_date_bg12
+            )
+            
+            if (style < 1 || style > clockBackgrounds.size) {
+                return
+            }
+            
+            val chipTopBottomPadding = context.resources.getDimensionPixelSize(
+                R.dimen.status_bar_clock_chip_tb_padding)
+            val chipLeftRightPadding = context.resources.getDimensionPixelSize(
+                R.dimen.status_bar_clock_chip_lr_padding)
+            
+            clock.setBackgroundResource(clockBackgrounds[style - 1])
+            clock.setPadding(
+                chipLeftRightPadding, 
+                chipTopBottomPadding, 
+                chipLeftRightPadding, 
+                chipTopBottomPadding
+            )
+            clock.setTextAlignment(View.TEXT_ALIGNMENT_CENTER)
+            // Set text color to white for visibility on colored chip backgrounds
+            clock.setTextColor(Color.WHITE)
         }
 
         // Always reset first so the previous active clock loses chip when position changes
@@ -513,9 +545,9 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
         reset(centerClock, centerPaddingInit)
         reset(rightClock, rightPaddingInit)
 
-        if (!enabled) return
+        if (chipStyle == 0) return
 
-        apply(activeClock)
+        apply(activeClock, chipStyle)
     }
 
     /**
