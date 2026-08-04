@@ -9326,9 +9326,7 @@ public final class ActivityThread extends ClientTransactionHandler
             RuntimeInit.setApplicationObject(mAppThread.asBinder());
             final IActivityManager mgr = ActivityManager.getService();
             try {
-                if (mgr != null) {
-                    mgr.attachApplication(mAppThread, startSeq);
-                }
+                mgr.attachApplication(mAppThread, startSeq);
             } catch (RemoteException ex) {
                 throw ex.rethrowFromSystemServer();
             }
@@ -9347,9 +9345,7 @@ public final class ActivityThread extends ClientTransactionHandler
                                 + " used=" + (dalvikUsed/1024));
                         mSomeActivitiesChanged = false;
                         try {
-                            if (atmgr != null) {
-                                atmgr.releaseSomeActivities(mAppThread);
-                            }
+                        ActivityTaskManager.getService().releaseSomeActivities(mAppThread);
                         } catch (RemoteException e) {
                             throw e.rethrowFromSystemServer();
                         }
