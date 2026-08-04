@@ -18,7 +18,9 @@
     <style name="SettingsLibCollapsingToolbarLayoutStyle">
         <item name="expandedTitleTextAppearance">@style/SettingsLibCollapsingToolbarTitle.Expanded</item>
         <item name="collapsedTitleTextAppearance">@style/SettingsLibCollapsingToolbarTitle.Collapsed</item>
-        <item name="expandedTitleGravity">center</item>
+        <item name="expandedTitleGravity">bottom|start</item>
+        <item name="expandedTitleMarginStart">@dimen/settingslib_oneui_expanded_title_margin_start</item>
+        <item name="expandedTitleMarginBottom">@dimen/settingslib_oneui_expanded_title_margin_bottom</item>
         <item name="collapsedTitleGravity">start|center_vertical</item>
         <item name="maxLines">3</item>
         <item name="scrimVisibleHeightTrigger">@dimen/settingslib_oneui_scrim_visible_height_trigger</item>
