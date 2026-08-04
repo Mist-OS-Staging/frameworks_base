@@ -48,28 +48,33 @@ class TaskSnapshotCache extends SnapshotCache<Task> {
     }
 
     void putSnapshot(Task task, TaskSnapshot snapshot) {
-        synchronized (mLock) {
-            snapshot.addReference(TaskSnapshot.REFERENCE_CACHE);
-            snapshot.setSafeRelease(mSafeSnapshotReleaser);
-            final CacheEntry entry = mRunningCache.get(task.mTaskId);
-            if (entry != null) {
-                mAppIdMap.remove(entry.topApp);
-                final TaskSnapshot previous = entry.snapshot;
-                if (mDeferRemoveCache != null && !previous.isLowResolution()
-                        && previous.getId() == snapshot.getId()) {
-                    mDeferRemoveCache.putSnapshot(task.mTaskId, previous);
-                } else {
-                    entry.snapshot.removeReference(TaskSnapshot.REFERENCE_CACHE);
-                } else {
-                ensureCapacityLocked();
-                }
+    synchronized (mLock) {
+        snapshot.addReference(TaskSnapshot.REFERENCE_CACHE);
+        snapshot.setSafeRelease(mSafeSnapshotReleaser);
+
+        final CacheEntry entry = mRunningCache.get(task.mTaskId);
+        if (entry != null) {
+            mAppIdMap.remove(entry.topApp);
+            final TaskSnapshot previous = entry.snapshot;
+
+            if (mDeferRemoveCache != null
+                    && !previous.isLowResolution()
+                    && previous.getId() == snapshot.getId()) {
+                mDeferRemoveCache.putSnapshot(task.mTaskId, previous);
+            } else {
+                previous.removeReference(TaskSnapshot.REFERENCE_CACHE);
             }
-            final ActivityRecord top = task.getTopMostActivity();
-            mAppIdMap.put(top, task.mTaskId);
-            mRunningCache.put(task.mTaskId, new CacheEntry(snapshot, top));
+        } else {
+            ensureCapacityLocked();
         }
-        onSnapshotEntryPutOrRemoved(task.mTaskId);
+
+        final ActivityRecord top = task.getTopMostActivity();
+        mAppIdMap.put(top, task.mTaskId);
+        mRunningCache.put(task.mTaskId, new CacheEntry(snapshot, top));
     }
+
+    onSnapshotEntryPutOrRemoved(task.mTaskId);
+}
 
     /**
      * Retrieves a snapshot from cache.

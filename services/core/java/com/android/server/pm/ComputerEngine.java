@@ -1767,15 +1767,6 @@ public class ComputerEngine implements Computer {
         if (!matchFactoryOnly && (flags & (MATCH_KNOWN_PACKAGES | MATCH_ARCHIVED_PACKAGES)) != 0) {
             final PackageStateInternal ps = mSettings.getPackage(packageName);
 
-            if (ps != null &&
-                    (flags & MATCH_KNOWN_PACKAGES) == 0 &&
-                    (flags & MATCH_ARCHIVED_PACKAGES) != 0) {
-                PackageUserState us = ps.getUserStateOrDefault(userId);
-                if (!us.isInstalled() && us.getArchiveState() == null) {
-                    return INVALID_UID;
-                }
-            }
-
             if (ps == null) return null;
             if (filterSharedLibPackage(ps, filterCallingUid, userId, flags)) {
                 return null;

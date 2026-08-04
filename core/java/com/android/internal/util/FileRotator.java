@@ -144,15 +144,7 @@ public class FileRotator {
      */
     public void deleteAll() {
         final FileInfo info = new FileInfo(mPrefix);
-        String[] baseFiles = mBasePath.list();
-        if (baseFiles == null) {
-            // no file in the path and create one starting now
-            info.startMillis = currentTimeMillis;
-            info.endMillis = Long.MAX_VALUE;
-            return info.build();
-        }
-
-        for (String name : baseFiles) {
+        for (String name : mBasePath.list()) {
             if (info.parse(name)) {
                 // delete each file that matches parser
                 new File(mBasePath, name).delete();
@@ -342,7 +334,15 @@ public class FileRotator {
         long oldestActiveStart = Long.MAX_VALUE;
 
         final FileInfo info = new FileInfo(mPrefix);
-        for (String name : mBasePath.list()) {
+        String[] baseFiles = mBasePath.list();
+        if (baseFiles == null) {
+            // no file in the path and create one starting now
+            info.startMillis = currentTimeMillis;
+            info.endMillis = Long.MAX_VALUE;
+            return info.build();
+        }
+
+        for (String name : baseFiles) {
             if (!info.parse(name)) continue;
 
             // pick the oldest active file which covers current time
