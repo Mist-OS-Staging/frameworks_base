@@ -60,6 +60,8 @@ class TaskSnapshotCache extends SnapshotCache<Task> {
                     mDeferRemoveCache.putSnapshot(task.mTaskId, previous);
                 } else {
                     entry.snapshot.removeReference(TaskSnapshot.REFERENCE_CACHE);
+                } else {
+                ensureCapacityLocked();
                 }
             }
             final ActivityRecord top = task.getTopMostActivity();
