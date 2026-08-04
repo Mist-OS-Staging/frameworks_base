@@ -2838,7 +2838,6 @@ public final class NotificationPanelViewController implements
             mExpanding = true;
             mIsExpandingOrCollapsing = true;
             mQsController.onExpandingStarted(mQsController.getFullyExpanded());
-            boostInteraction(700);
         }
     }
 
