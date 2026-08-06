@@ -26,6 +26,7 @@ import com.android.internal.util.mist.Utils
 object WallpaperPickerIntentUtils {
 
     fun getIntent(context: Context, launchSource: String): Intent {
+    val wpPkg = if (Utils.isPackageInstalled(context, GOOGLE_WP_PKG)) GOOGLE_WP_PKG else DEFAULT_WP_PKG
         return Intent(Intent.ACTION_SET_WALLPAPER).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
             setPackage(wpPkg)
