@@ -18,9 +18,13 @@ package com.android.systemui.shade
 
 import android.view.MotionEvent
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.qs.panels.ui.viewmodel.EditModeViewModel
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
+import com.android.systemui.util.ScrimUtils
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @SysUISingleton
 class QuickSettingsControllerSceneImpl
@@ -28,7 +32,19 @@ class QuickSettingsControllerSceneImpl
 constructor(
     private val shadeInteractor: ShadeInteractor,
     private val editModeViewModel: EditModeViewModel,
+    @Application private val applicationScope: CoroutineScope,
 ) : QuickSettingsController {
+
+    init {
+        // Bridge QS expand/collapse state to ScrimUtils so that PulseViewController
+        // and MediaViewController (in the src module) receive onQsVisibilityChanged()
+        // even when using the Compose-based scene framework.
+        applicationScope.launch {
+            shadeInteractor.isQsExpanded.collect { isExpanded ->
+                ScrimUtils.get().setQsVisible(isExpanded)
+            }
+        }
+    }
 
     override val expanded: Boolean
         get() = shadeInteractor.isQsExpanded.value

@@ -57,14 +57,18 @@ interface LockscreenSceneModule {
             lockscreenElements: LockscreenElements,
             clockInteractor: KeyguardClockInteractor,
             interactionJankMonitor: InteractionJankMonitor,
+            pulseViewController: com.android.systemui.pulse.PulseViewController,
+            mediaViewController: com.android.systemui.media.MediaViewController,
         ): LockscreenContent {
             return LockscreenContent(
-                viewModelFactory,
-                lockscreenFrontScrimViewModelFactory,
-                lockscreenBehindScrimViewModelFactory,
-                lockscreenElements,
-                clockInteractor,
-                interactionJankMonitor,
+                viewModelFactory = viewModelFactory,
+                lockscreenFrontScrimViewModelFactory = lockscreenFrontScrimViewModelFactory,
+                lockscreenBehindScrimViewModelFactory = lockscreenBehindScrimViewModelFactory,
+                lockscreenElements = lockscreenElements,
+                clockInteractor = clockInteractor,
+                interactionJankMonitor = interactionJankMonitor,
+                pulseViewController = pulseViewController,
+                mediaViewController = mediaViewController,
             )
         }
     }

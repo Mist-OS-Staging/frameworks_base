@@ -28,7 +28,7 @@ class PulseSettingsRepository(private val context: Context) {
 
     companion object {
         private const val PULSE_ENABLED = Settings.Secure.LOCKSCREEN_PULSE_ENABLED
-        private const val PULSE_AMBIENT_ENABLED = Settings.Secure.AMBIENT_PULSE_ENABLED
+        private const val PULSE_AMBIENT_ENABLED = "pulse_show_on_ambient"
         private const val PULSE_BAR_COUNT = Settings.Secure.PULSE_BAR_COUNT
         private const val PULSE_ROUNDED_BARS = Settings.Secure.PULSE_ROUNDED_BARS
         private const val PULSE_COLOR = Settings.Secure.PULSE_COLOR
@@ -140,6 +140,10 @@ class PulseSettingsRepository(private val context: Context) {
             cachedHapticsMode = getSecureSetting(PULSE_BASS_HAPTICS, DEFAULT_HAPTICS_MODE)
         }
         return cachedHapticsMode!!
+    }
+
+    fun getHeightMultiplier(): Int {
+        return getSecureSetting("pulse_height_multiplier", 100)
     }
 
     fun invalidateCache() {

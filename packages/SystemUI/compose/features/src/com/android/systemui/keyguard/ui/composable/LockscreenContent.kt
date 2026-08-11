@@ -32,6 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.layout.fillMaxSize
+import com.android.systemui.pulse.PulseViewController
+import com.android.systemui.media.MediaViewController
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import com.android.compose.animation.scene.ContentScope
@@ -70,6 +74,8 @@ class LockscreenContent(
     private val lockscreenElements: LockscreenElements,
     private val clockInteractor: KeyguardClockInteractor,
     private val interactionJankMonitor: InteractionJankMonitor,
+    private val pulseViewController: PulseViewController,
+    private val mediaViewController: MediaViewController,
 ) {
     @Composable
     fun ContentScope.Content(modifier: Modifier = Modifier) {
@@ -113,10 +119,11 @@ class LockscreenContent(
 
         // The `contentAlphaAnimatable` must animate from 0 -> 1 at the end of each transition / end
         // of user's gestures, iff the transition matched `shouldContentFadeIn`.  Keep track of the
-        // last transition that required this fade-in, in order to trigger an animation every time.
-        var revealContentAfterTransition by remember {
-            mutableStateOf<TransitionState.Transition?>(null, policy = referentialEqualityPolicy())
-        }
+        // transition that we're reacting to, so we don't start the animation on the wrong
+        // transition.
+        var revealContentAfterTransition: TransitionState.Transition? by
+            remember(layoutState.currentTransition) { mutableStateOf(null) }
+
         layoutState.currentTransition
             ?.takeIf { currentTransition -> viewModel.shouldContentFadeIn(currentTransition) }
             ?.also { revealContentAfterTransition = it }
@@ -149,10 +156,31 @@ class LockscreenContent(
             onDispose { handle.dispose() }
         }
 
+        DisposableEffect(Unit) {
+            com.android.systemui.util.ScrimUtils.get().setKeyguardShowing(true)
+            mediaViewController.onKeyguardShowingChanged(true)
+            pulseViewController.onKeyguardShowingChanged(true)
+            onDispose {
+                com.android.systemui.util.ScrimUtils.get().setKeyguardShowing(false)
+                mediaViewController.onKeyguardShowingChanged(false)
+                pulseViewController.onKeyguardShowingChanged(false)
+            }
+        }
+
         LockscreenBehindScrim(
             lockscreenBehindScrimViewModel,
             Modifier.element(LockscreenElementKeys.BehindScrim),
         )
+
+        AndroidView(
+            factory = { _ -> 
+                val view = mediaViewController.getMediaArtScrim()
+                (view.parent as? android.view.ViewGroup)?.removeView(view)
+                view
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+
         with(lockscreenElements) {
             LockscreenElement(
                 LockscreenElementKeys.Root,
@@ -168,6 +196,7 @@ class LockscreenContent(
                 LockscreenElementContext(nonAuthUI = Modifier.nonAuthUI(viewModel)),
             )
         }
+
         LockscreenFrontScrim(lockscreenFrontScrimViewModel)
     }
 

@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -392,21 +393,14 @@ private fun ContentScope.QuickSettingsLayout(
 
         VerticalSeparator(QuickSettingsShade.Dimensions.ToolbarBottomPadding)
 
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            Media(
-                viewModelFactory = qsContainerViewModel.mediaViewModelFactory,
-                presentationStyle = MediaPresentationStyle.Compact,
-                behavior = QuickSettingsContainerViewModel.mediaUiBehavior,
-                onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
-                modifier = Modifier,
-                location = Media.Location.QS,
-            )
+        val qsShowBrightnessSlider by qsContainerViewModel.qsShowBrightnessSliderFlow.collectAsState(initial = 1)
+        val sliderPosition by qsContainerViewModel.qsBrightnessSliderPositionFlow.collectAsState(initial = 0)
 
-            if (qsContainerViewModel.showMedia) {
-                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
-            }
+        val showBrightness = qsContainerViewModel.isBrightnessSliderVisible && (qsShowBrightnessSlider != 0)
+        val showBottom = (sliderPosition == 1)
 
-            if (qsContainerViewModel.isBrightnessSliderVisible) {
+        val brightnessSliderComposable = @Composable {
+            if (showBrightness) {
                 Box(
                     Modifier.systemGestureExclusionInShade(
                         enabled = { layoutState.transitionState is TransitionState.Idle }
@@ -423,6 +417,29 @@ private fun ContentScope.QuickSettingsLayout(
                         modifier = Modifier.fillMaxWidth(),
                         dimensions = QuickSettingsShade.Dimensions.brightnessSliderDimensions,
                     )
+                }
+            }
+
+            }
+
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Media(
+                viewModelFactory = qsContainerViewModel.mediaViewModelFactory,
+                presentationStyle = MediaPresentationStyle.Compact,
+                behavior = QuickSettingsContainerViewModel.mediaUiBehavior,
+                onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
+                modifier = Modifier,
+                location = Media.Location.QS,
+            )
+
+            if (qsContainerViewModel.showMedia) {
+                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+            }
+
+            if (!showBottom) {
+                brightnessSliderComposable()
+                if (showBrightness) {
+                    VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
                 }
             }
 
@@ -490,6 +507,11 @@ private fun ContentScope.QuickSettingsLayout(
                 modifier = Modifier.fillMaxWidth(),
                 enableRevealEffect = TileRevealFlag.isEnabled,
             )
+
+            if (showBottom) {
+                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+                brightnessSliderComposable()
+            }
 
             val buildNumberViewModel =
                 rememberViewModel("QuickSettingsShadeOverlay.BuildNumber") {

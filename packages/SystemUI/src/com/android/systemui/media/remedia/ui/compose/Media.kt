@@ -98,6 +98,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
@@ -227,6 +228,7 @@ fun Media(
         modifier = modifier,
         mediaSquishiness = mediaSquishiness,
         expansion = expansion,
+        location = location,
     )
 }
 
@@ -247,6 +249,7 @@ private fun CardCarousel(
     modifier: Modifier = Modifier,
     mediaSquishiness: () -> Float,
     expansion: () -> Float,
+    location: Media.Location = Media.Location.QS,
 ) {
     AnimatedVisibility(
         visible = viewModel.isCarouselVisible,
@@ -261,6 +264,7 @@ private fun CardCarousel(
             onDismissed = onDismissed,
             mediaSquishiness = mediaSquishiness,
             expansion = expansion,
+            location = location,
         )
     }
 }
@@ -274,6 +278,7 @@ private fun CardCarouselContent(
     modifier: Modifier = Modifier,
     mediaSquishiness: () -> Float,
     expansion: () -> Float,
+    location: Media.Location = Media.Location.QS,
 ) {
     val carouselState = rememberCarouselState {
         if (behavior.isCarouselScrollingEnabled) {
@@ -364,6 +369,7 @@ private fun CardCarouselContent(
                             carouselStyle = presentationStyle,
                             mediaSquishiness = mediaSquishiness,
                             expansion = expansion,
+                            location = location,
                             modifier =
                                 Modifier.maskClip(roundedCornerShape)
                                     .fillMaxWidth()
@@ -419,6 +425,7 @@ private fun Card(
     modifier: Modifier = Modifier,
     mediaSquishiness: () -> Float,
     expansion: () -> Float,
+    location: Media.Location = Media.Location.QS,
 ) {
     val viewModel = mediaViewModel.cards[cardIndex]
     val stlState =
@@ -435,16 +442,15 @@ private fun Card(
     }
 
     Box(modifier) {
-        if (carouselStyle != MediaPresentationStyle.Compact) {
             CardBackground(
                 image = viewModel.background,
                 colorScheme = colorScheme,
+                location = location,
                 modifier =
                     Modifier.matchParentSize()
                         .sysuiResTag(MediaRes.BACKGROUND)
-                        .clip(RoundedCornerShape(32.dp)),
+                        .clip(RoundedCornerShape(28.dp)),
             )
-        }
 
         Expandable(
             controller =
@@ -897,14 +903,17 @@ private fun ContentScope.CompactCardForeground(
     viewModel: MediaCardViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val hasArt = viewModel.background is com.android.systemui.common.shared.model.Icon.Loaded
+    val backgroundColor = MaterialTheme.colorScheme.surfaceContainer
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier =
             modifier
+                 .clip(RoundedCornerShape(28.dp))
                 .clickable(onClick = { viewModel.onClick(expandable) })
                 .semantics { contentDescription = viewModel.contentDescription }
-                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .thenIf(!hasArt) { Modifier.background(backgroundColor) }
                 .padding(16.dp),
     ) {
         Icon(
@@ -955,29 +964,35 @@ private fun CardBackground(
     image: Icon?,
     colorScheme: AnimatedColorScheme,
     modifier: Modifier = Modifier,
+    location: Media.Location = Media.Location.QS,
 ) {
     Crossfade(targetState = image, modifier = modifier) { imageOrNull ->
         val backgroundImage =
-            remember(imageOrNull) { imageOrNull?.let { (it as Icon.Loaded).asImageBitmap() } }
+            remember(imageOrNull) { (imageOrNull as? Icon.Loaded)?.asImageBitmap() }
         if (backgroundImage != null) {
             // Loaded art.
             val gradientBaseColor = colorScheme.background
+            val isQs = (location == Media.Location.QS)
             Image(
                 bitmap = backgroundImage,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier =
-                    Modifier.fillMaxSize().drawWithContent {
+                    Modifier.fillMaxSize()
+                        .thenIf(isQs) { Modifier.blur(40.dp) }
+                        .drawWithContent {
                         // Draw the content (loaded art).
                         drawContent()
 
                         if (image != null) {
                             // Then draw the overlay.
+                            val startAlpha = if (isQs) 0.35f else 0.65f
+                            val endAlpha = if (isQs) 0.45f else 0.75f
                             drawRect(
                                 brush =
                                     Brush.radialGradient(
-                                        0f to gradientBaseColor.copy(alpha = 0.65f),
-                                        1f to gradientBaseColor.copy(alpha = 0.75f),
+                                        0f to gradientBaseColor.copy(alpha = startAlpha),
+                                        1f to gradientBaseColor.copy(alpha = endAlpha),
                                         center = size.center,
                                         radius = max(size.width, size.height) / 2,
                                     )

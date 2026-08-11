@@ -69,6 +69,7 @@ class MediaViewController @Inject constructor(
     private var keyguardShowing = false
     private var isDozing = false
     private var isGlanceableHubShowing = false
+    private var qsVisible = false
 
     private var mediaFilter = 0
     private var mediaFadeLevel = 40
@@ -188,7 +189,8 @@ class MediaViewController @Inject constructor(
     }
 
     private fun setupMediaFilter() {
-        val effect = when (mediaFilter) {
+        val activeFilter = if (mediaFilter == 0) 1 else mediaFilter
+        val effect = when (activeFilter) {
             1 -> RenderEffect.createBlurEffect(
                 mediaBlurLevel.toFloat(), 
                 mediaBlurLevel.toFloat(), 
@@ -250,10 +252,10 @@ class MediaViewController @Inject constructor(
         if (!isMediaPlaying) return false
         if (bouncerShowingOrKeyguardDismissing) return false
         if (artworkDrawable == null) return false
-        if (!isCollapsed) return false
         if (isGlanceableHubShowing) return false
         if (isDozing && ambientEnabled) return true
         if (keyguardShowing && !isDozing) return true
+        if (qsVisible) return true
         return false
     }
 
@@ -478,6 +480,7 @@ class MediaViewController @Inject constructor(
     }
 
     override fun onQsVisibilityChanged(visible: Boolean) {
+        qsVisible = visible
         coroutineScope.launch {
             onMediaStateChanged()
         }
@@ -487,7 +490,7 @@ class MediaViewController @Inject constructor(
         keyguardShowing = showing
         if (keyguardShowing) {
             dismissingKeyguard = false
-        } else {
+        } else if (!qsVisible) {
             cleanupResources(false)
         }
         coroutineScope.launch {

@@ -21,10 +21,12 @@ import android.app.WallpaperColors
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.theming.ThemeStyle
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.PlaybackState
+import android.os.UserHandle
 import android.provider.Settings
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -41,6 +43,7 @@ import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.media.MediaSessionManager
 import com.android.systemui.media.NotificationMediaManager
 import com.android.systemui.media.controls.data.model.MediaSortKeyModel
 import com.android.systemui.media.controls.shared.model.MediaData
@@ -305,6 +308,10 @@ constructor(
                 val mediaModel = toDataModel(controller, icon, background)
                 sortedMap[sortKey] = mediaModel
 
+                if (isPlaying == true) {
+                    MediaSessionManager.get().onPlaybackStateChanged(PlaybackState.STATE_PLAYING)
+                }
+
                 // Only setup controller when needed a new one.
                 if (!useCurrentController) {
                     controller?.let { setupControllerLocked(mediaModel.instanceId, it) }
@@ -418,9 +425,32 @@ constructor(
                 if (currentModel != null && updateModel?.isBackgroundUpdated == false) {
                     currentModel.background
                 } else {
-                    artwork?.loadDrawable(applicationContext)?.let { drawable ->
-                        Icon.Loaded(drawable, contentDescription = null)
+                    val loadedDrawable = try {
+                        if (artwork != null) {
+                            var drawable = artwork.loadDrawable(applicationContext)
+                            if (drawable == null && (artwork.type == android.graphics.drawable.Icon.TYPE_BITMAP ||
+                                artwork.type == android.graphics.drawable.Icon.TYPE_ADAPTIVE_BITMAP)) {
+                                drawable = artwork.bitmap?.let { BitmapDrawable(applicationContext.resources, it) }
+                            }
+                            drawable ?: run {
+                                    val pkgCtx = applicationContext.createPackageContextAsUser(
+                                        packageName, 0, UserHandle.of(currentData.userId)
+                                    )
+                                    artwork?.loadDrawable(pkgCtx)
+                            }
+                        } else null
+                    } catch (e: Exception) {
+                        try {
+                            artwork?.loadDrawable(applicationContext)
+                        } catch (e2: Exception) {
+                            null
+                        }
                     }
+                    if (loadedDrawable != null) {
+                        MediaSessionManager.get().onAlbumArtChanged(loadedDrawable)
+                    }
+                    loadedDrawable?.let { Icon.Loaded(it, contentDescription = null) }
+                        ?: (icon as? Icon.Loaded)
                 }
             Pair(icon, background)
         }
@@ -519,7 +549,8 @@ constructor(
         val callback =
             object : MediaController.Callback() {
                 override fun onPlaybackStateChanged(state: PlaybackState?) {
-                    if (state == null || PlaybackState.STATE_NONE.equals(state)) {
+                    state?.let { MediaSessionManager.get().onPlaybackStateChanged(it.state) }
+                    if (state == null || PlaybackState.STATE_NONE.equals(state.state)) {
                         applicationScope.launch {
                             mediaMutex.withLock { clearControllerStateLocked(instanceId) }
                         }
@@ -529,6 +560,7 @@ constructor(
                 }
 
                 override fun onMetadataChanged(metadata: MediaMetadata?) {
+                    metadata?.let { MediaSessionManager.get().onMetadataChanged(it) }
                     applicationScope.launch {
                         mediaMutex.withLock {
                             val duration =
@@ -559,8 +591,12 @@ constructor(
         activeControllerModels[instanceId] = MediaControllerDataModel(controller, callback)
         controller.registerCallback(callback)
 
-        // Initial polling setup.
-        controller.playbackState?.let { updatePollingState(instanceId, it, requireUpdate = false) }
+        // Initial polling setup and initial MediaSessionManager state.
+        controller.playbackState?.let { state ->
+            MediaSessionManager.get().onPlaybackStateChanged(state.state)
+            updatePollingState(instanceId, state, requireUpdate = false)
+        }
+        controller.metadata?.let { MediaSessionManager.get().onMetadataChanged(it) }
     }
 
     private fun updatePollingState(

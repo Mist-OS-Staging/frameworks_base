@@ -82,6 +82,8 @@ val Kosmos.lockscreenContent by
                 ),
             clockInteractor = keyguardClockInteractorWithImpl,
             interactionJankMonitor = interactionJankMonitor,
+            pulseViewController = mock(),
+            mediaViewController = mock(),
         )
     }
 
