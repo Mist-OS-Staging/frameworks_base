@@ -25,28 +25,37 @@ class PulseEngine(
     private val settingsRepo: PulseSettingsRepository,
     private val onDataProcessed: (FloatArray) -> Unit
 ) {
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    @Volatile
+    private var scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var fftAverage: Array<FFTAverage>? = null
     private val fudgeFactor = 20
 
     fun processFFT(data: ByteArray) {
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        }
         scope.launch {
             val barCount = settingsRepo.getBarCount()
             if (fftAverage == null || fftAverage!!.size != barCount) {
                 fftAverage = Array(barCount) { FFTAverage() }
             }
             val output = FloatArray(barCount)
+            val n = data.size
+            if (n >= 4) {
+                val halfN = n / 2
             for (i in 0 until barCount) {
-                val realIndex = i * 2 + 2
-                val imagIndex = i * 2 + 3
-                if (realIndex >= data.size || imagIndex >= data.size) continue
+                val binIndex = ((i + 1) * halfN / (barCount + 1))
+                val realIndex = (binIndex * 2).coerceIn(0, n - 2)
+                val imagIndex = (realIndex + 1).coerceIn(0, n - 1)
                 val rfk = data[realIndex].toInt()
                 val ifk = data[imagIndex].toInt()
-                val magnitude = (rfk * rfk + ifk * ifk).toFloat()
-                var dbValue = if (magnitude > 0) (10 * log10(magnitude.toDouble())).toInt() else 0
+                val magnitude = Math.hypot(rfk.toDouble(), ifk.toDouble()).toFloat()
+
+                    var dbValue = if (magnitude > 0f) (10 * log10(magnitude.toDouble())).toInt() else 0
                 dbValue = fftAverage!![i].average(dbValue)
-                output[i] = dbValue * fudgeFactor.toFloat()
+                output[i] = (dbValue * 15f).coerceAtLeast(8f)
+                }
             }
             withContext(Dispatchers.Main) {
                 onDataProcessed(output)
@@ -55,7 +64,7 @@ class PulseEngine(
     }
 
     fun stop() {
-        scope.cancel()
+        scope.coroutineContext.cancelChildren()
     }
 
     private class FFTAverage {

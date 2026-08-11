@@ -38,6 +38,16 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
+import android.content.Context
+import android.database.ContentObserver
+import android.os.UserHandle
+import lineageos.providers.LineageSettings
+import com.android.systemui.dagger.qualifiers.Background
+import kotlinx.coroutines.CoroutineDispatcher
+import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.flowOn
+
 class QuickSettingsContainerViewModel
 @AssistedInject
 constructor(
@@ -51,6 +61,8 @@ constructor(
     val mediaViewModelFactory: MediaViewModel.Factory,
     mediaInRowInLandscapeViewModelFactory: MediaInRowInLandscapeViewModel.Factory,
     @ShadeDisplayAware shadeDisplayTypeRepository: DisplayTypeRepository,
+    private val context: Context,
+    @Background private val bgDispatcher: CoroutineDispatcher,
 ) : HydratedActivatable() {
 
     val isBrightnessSliderVisible by
@@ -61,6 +73,52 @@ constructor(
             .hydratedStateOf(
                 initialValue = shadeDisplayTypeRepository.displayType.value == Display.TYPE_INTERNAL
             )
+
+    val qsShowBrightnessSliderFlow = conflatedCallbackFlow {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                trySend(
+                    LineageSettings.Secure.getIntForUser(
+                        context.contentResolver,
+                        LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
+                        1,
+                        UserHandle.USER_CURRENT
+                    )
+                )
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            LineageSettings.Secure.getUriFor(LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER),
+            false,
+            observer,
+            UserHandle.USER_ALL
+        )
+        observer.onChange(false)
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+    }.flowOn(bgDispatcher)
+
+    val qsBrightnessSliderPositionFlow = conflatedCallbackFlow {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                trySend(
+                    LineageSettings.Secure.getIntForUser(
+                        context.contentResolver,
+                        LineageSettings.Secure.QS_BRIGHTNESS_SLIDER_POSITION,
+                        0,
+                        UserHandle.USER_CURRENT
+                    )
+                )
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            LineageSettings.Secure.getUriFor(LineageSettings.Secure.QS_BRIGHTNESS_SLIDER_POSITION),
+            false,
+            observer,
+            UserHandle.USER_ALL
+        )
+        observer.onChange(false)
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+    }.flowOn(bgDispatcher)
 
     val isEditing by editModeViewModel.isEditing.hydratedStateOf()
 

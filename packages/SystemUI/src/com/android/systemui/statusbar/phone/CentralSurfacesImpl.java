@@ -158,6 +158,7 @@ import com.android.systemui.plugins.PluginListener;
 import com.android.systemui.plugins.PluginManager;
 import com.android.systemui.plugins.qs.QS;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
+import com.android.systemui.pulse.PulseView;
 import com.android.systemui.power.domain.interactor.PowerInteractor;
 import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.qs.composefragment.QSFragmentCompose;
@@ -964,7 +965,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     }
 
     private void attachCustomOverlays() {
-        ViewGroup overlay = getScrimOverlayContainer();
         ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
@@ -976,10 +976,21 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        overlay.addView(mPulseViewController.getPulseView(),
+        final PulseView pulseView = mPulseViewController.getPulseView();
+        root.addView(pulseView,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+
+        root.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                if (pulseView.getParent() == root && pulseView.getVisibility() == View.VISIBLE) {
+                    pulseView.bringToFront();
+                }
+                return true;
+            }
+        });
     }
 
     private static void detachFromParent(View v) {
@@ -987,6 +998,18 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         final ViewParent p = v.getParent();
         if (p instanceof ViewGroup) {
             ((ViewGroup) p).removeView(v);
+        }
+    }
+
+    private static void detachPulseFromOverlay(ViewGroup root, View v) {
+        if (v == null) return;
+        // Try normal parent removal first
+        final ViewParent p = v.getParent();
+        if (p instanceof ViewGroup) {
+            ((ViewGroup) p).removeView(v);
+        } else {
+            // May be in the ViewOverlay — remove from there
+            try { root.getOverlay().remove(v); } catch (Exception ignored) {}
         }
     }
 

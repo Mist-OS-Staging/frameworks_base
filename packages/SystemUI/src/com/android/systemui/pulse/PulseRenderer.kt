@@ -37,6 +37,13 @@ class PulseRenderer(
     private var lastBarCount = -1
     private var lastDataSize = -1
 
+    fun notifySizeChanged(w: Int, h: Int) {
+        style.onSizeChanged(w, h)
+        lastViewW = w
+        lastViewH = h
+        lastBarCount = settingsRepo.getBarCount()
+    }
+
     fun updateHeights(newHeights: FloatArray) {
         ensureStyleUpToDate()
         val currentBarCount = settingsRepo.getBarCount()
@@ -51,7 +58,7 @@ class PulseRenderer(
     }
 
     fun onDraw(canvas: Canvas, viewWidth: Int, viewHeight: Int) {
-        if (!settingsRepo.isPulseEnabled()) return
+        android.util.Log.d("PulseRenderer", "onDraw: w=$viewWidth h=$viewHeight")
         if (lastViewW != viewWidth || lastViewH != viewHeight) {
             style.onSizeChanged(viewWidth, viewHeight)
             lastViewW = viewWidth

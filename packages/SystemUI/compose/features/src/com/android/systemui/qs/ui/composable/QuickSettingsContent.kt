@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,17 +55,21 @@ fun ContentScope.QuickSettingsContent(
     mediaInRow: Boolean,
     modifier: Modifier = Modifier,
     mediaSquishiness: () -> Float = { 1f },
+    isExpanded: Boolean = false,
 ) {
     QuickSettingsPanelLayout(
         brightness =
             @Composable {
-                if (viewModel.isBrightnessSliderVisible) {
-                    var isBrightnessSliderInteractable by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) {
-                        snapshotFlow { Elements.QuickSettingsContent.currentAlpha() }
-                            .filterNotNull()
-                            .collect { isBrightnessSliderInteractable = it >= .5f }
-                    }
+                val qsShowBrightnessSlider by viewModel.qsShowBrightnessSliderFlow.collectAsState(initial = 1)
+                
+                val isVisible = when (qsShowBrightnessSlider) {
+                    0 -> false
+                    1 -> isExpanded
+                    2 -> true
+                    else -> true
+                }
+
+                if (isVisible) {
                     Element(modifier = Modifier, key = Elements.BrightnessSlider) {
                         BrightnessSliderContainer(
                             viewModel.brightnessSliderViewModel,
@@ -75,12 +80,9 @@ fun ContentScope.QuickSettingsContent(
                                 ),
                             modifier =
                                 Modifier.padding(
-                                        vertical =
-                                            dimensionResource(id = R.dimen.qs_brightness_margin_top)
-                                    )
-                                    .thenIf(!isBrightnessSliderInteractable) {
-                                        Modifier.gesturesDisabled()
-                                    },
+                                    vertical =
+                                        dimensionResource(id = R.dimen.qs_brightness_margin_top)
+                                )
                         )
                     }
                 }
@@ -123,6 +125,7 @@ fun ContentScope.QuickSettingsContent(
                 }
             },
         mediaInRow = mediaInRow,
+        sliderPosition = viewModel.qsBrightnessSliderPositionFlow.collectAsState(initial = 0).value,
         modifier =
             modifier
                 .element(Elements.QuickSettingsContent)
@@ -137,6 +140,7 @@ private fun QuickSettingsPanelLayout(
     tiles: @Composable () -> Unit,
     media: @Composable () -> Unit,
     mediaInRow: Boolean,
+    sliderPosition: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     if (mediaInRow) {
@@ -145,7 +149,8 @@ private fun QuickSettingsPanelLayout(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = modifier,
         ) {
-            brightness()
+            val showBottom = false // Media in row implies landscape, usually slider stays on top
+            if (!showBottom) brightness()
             Row(
                 horizontalArrangement = spacedBy(QuickSettingsShade.Dimensions.HorizontalPadding),
                 verticalAlignment = Alignment.CenterVertically,
@@ -155,14 +160,16 @@ private fun QuickSettingsPanelLayout(
             }
         }
     } else {
+        val showBottom = (sliderPosition == 1)
         Column(
             verticalArrangement = spacedBy(QuickSettingsShade.Dimensions.VerticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = modifier,
         ) {
-            brightness()
+            if (!showBottom) brightness()
             tiles()
             media()
+            if (showBottom) brightness()
         }
     }
 }

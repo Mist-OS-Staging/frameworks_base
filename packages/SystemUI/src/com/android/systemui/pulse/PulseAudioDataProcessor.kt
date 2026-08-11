@@ -36,7 +36,7 @@ class PulseAudioDataProcessor(private val context: Context) {
     }
 
     private var visualizer: Visualizer? = null
-    private var dataListener: WeakReference<DataListener>? = null
+    private var dataListener: DataListener? = null
     private val handler = Handler(Looper.getMainLooper())
 
     @Volatile
@@ -56,7 +56,7 @@ class PulseAudioDataProcessor(private val context: Context) {
     }
 
     fun setDataListener(listener: DataListener) {
-        dataListener = WeakReference(listener)
+        dataListener = listener
     }
 
     fun startCapture() {
@@ -93,7 +93,6 @@ class PulseAudioDataProcessor(private val context: Context) {
 
     fun cleanup() {
         stopCapture()
-        dataListener?.clear()
         dataListener = null
     }
 
@@ -299,9 +298,10 @@ class PulseAudioDataProcessor(private val context: Context) {
             return
         }
         lastUpdateTime = currentTime
+        android.util.Log.d("PulseAudioProcessor", "processFFTData: ${fftBytes.size} bytes, posting to listener")
         pulseData.updateFFTData(fftBytes)
         handler.post {
-            dataListener?.get()?.onDataUpdate(pulseData)
+            dataListener?.onDataUpdate(pulseData)
         }
     }
 

@@ -17,7 +17,9 @@
 package com.android.systemui.pulse
 
 import android.content.Context
-import android.media.session.PlaybackState
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.media.MediaSessionManager
 import com.android.systemui.util.ScrimUtils
@@ -33,28 +35,47 @@ class PulseViewController @Inject constructor(
     MediaSessionManager.MediaDataListener,
     ScrimUtils.ScrimEventListener {
 
+    companion object {
+        private const val TAG = "PulseViewController"
+
+        @Volatile
+        private var INSTANCE: PulseViewController? = null
+
+        @JvmStatic
+        fun get(context: Context): PulseViewController {
+            return INSTANCE ?: throw IllegalStateException("PulseViewController not initialized")
+        }
+    }
+
     private val mainScope = MainScope()
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var listenersRegistered = false
 
-    private var isMediaPlaying = false
-    private var bouncerShowingOrKeyguardDismissing = false
-    private var keyguardShowing = false
+    // Screen/UI state — assume screen ON until told otherwise
+    private var isScreenOn = true
+    private var bouncerShowing = false
     private var isDozing = false
-    private var isScreenOff = false
 
-    private val settingsRepository: PulseSettingsRepository =
-        PulseSettingsRepository(context)
+    // Periodic poll to catch music start/stop events that miss callbacks
+    private val musicPollRunnable = object : Runnable {
+        override fun run() {
+            if (pulseEnabled && listenersRegistered) {
+                updateState()
+            }
+            mainHandler.postDelayed(this, 2000L)
+        }
+    }
 
-    private val view: PulseView =
-        PulseView(context)
+    private val settingsRepository: PulseSettingsRepository = PulseSettingsRepository(context)
+
+    private val view: PulseView = PulseView(context)
 
     private val audioProcessor: PulseAudioDataProcessor =
         PulseAudioDataProcessor(context).apply {
             setDataListener(this@PulseViewController)
         }
 
-    private val bassHaptics: PulseBassHaptics =
-        PulseBassHaptics(context)
+    private val bassHaptics: PulseBassHaptics = PulseBassHaptics(context)
 
     val pulseEnabled: Boolean
         get() = settingsRepository.isPulseEnabled()
@@ -62,89 +83,121 @@ class PulseViewController @Inject constructor(
     val ambientEnabled: Boolean
         get() = settingsRepository.isPulseAmbientEnabled()
 
-    private val isCollapsed: Boolean
-        get() = ScrimUtils.get().isPanelFullyCollapsed()
-
     private val hapticsMode: Int
         get() = settingsRepository.getPulseHapticsMode()
 
-    var pulseRunning: Boolean = false
+    /** Whether Pulse should currently be running. */
+    private var pulseRunning: Boolean = false
         set(value) {
             if (value == field) return
             field = value
-            updatePulse(value)
+            Log.d(TAG, "pulseRunning → $value")
+            onPulseRunningChanged(value)
         }
 
     init {
         INSTANCE = this
-
         view.initialize(settingsRepository)
         settingsRepository.setOnSettingsChangedListener { onSettingsChanged() }
         settingsRepository.startObserving()
         onSettingsChanged()
+        Log.d(TAG, "PulseViewController initialized, pulseEnabled=$pulseEnabled")
     }
 
     fun getPulseView(): PulseView = view
 
+    // -------------------------------------------------------------------------
+    // Core state machine
+    // -------------------------------------------------------------------------
+
+    private fun isMusicActive(): Boolean {
+        val am = context.getSystemService(android.media.AudioManager::class.java)
+        val audioActive = am?.isMusicActive == true
+        val mediaPlaying = MediaSessionManager.get().isMediaPlaying
+        Log.d(TAG, "isMusicActive: audioMgr=$audioActive mediaMgr=$mediaPlaying")
+        return audioActive || mediaPlaying
+    }
+
     private fun updateState() {
         if (!pulseEnabled) {
+            Log.d(TAG, "updateState: pulse disabled, stopping")
             pulseRunning = false
             return
         }
-        pulseRunning = isMediaPlaying 
-                && !bouncerShowingOrKeyguardDismissing
-                && isCollapsed
-                && !isScreenOff
-                && ((keyguardShowing && !isDozing)
-                || (isDozing && ambientEnabled))
+        val music = isMusicActive()
+        // Show on: homescreen, lockscreen, QS — any screen that's ON and not bouncer
+        // Show on AOD/ambient only if ambient pulse is enabled
+        val screenOk = isScreenOn && !bouncerShowing
+        val locationOk = if (isDozing) ambientEnabled else true
+        val should = music && screenOk && locationOk
+        Log.d(TAG, "updateState: music=$music screenOn=$isScreenOn dozing=$isDozing " +
+                "bouncer=$bouncerShowing ambient=$ambientEnabled → pulseRunning=$should")
+        pulseRunning = should
     }
 
-    private fun onSettingsChanged() {
-        val enabled = pulseEnabled
-        if (enabled && !listenersRegistered) {
-            ScrimUtils.get().addListener(this)
-            MediaSessionManager.get().addListener(this)
-            listenersRegistered = true
-        } else if (!enabled && listenersRegistered) {
-            ScrimUtils.get().removeListener(this)
-            MediaSessionManager.get().removeListener(this)
-            listenersRegistered = false
-            pulseRunning = false
-            mainScope.launch {
-                view.setVisibility(false)
-                audioProcessor.stopCapture()
-            }
-        }
-        updateState()
-        // Force update
-        updatePulse(pulseRunning)
-    }
-
-    private fun updatePulse(show: Boolean) {
+    private fun onPulseRunningChanged(running: Boolean) {
         mainScope.launch {
-            view.setVisibility(show)
-            if (pulseEnabled && (show || hapticsMode > 1)) {
+            view.setVisibility(running)
+            if (pulseEnabled && (running || hapticsMode > 1)) {
+                Log.d(TAG, "Starting audio capture")
                 audioProcessor.startCapture()
             } else {
+                Log.d(TAG, "Stopping audio capture")
                 audioProcessor.stopCapture()
                 bassHaptics.reset()
             }
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Settings
+    // -------------------------------------------------------------------------
+
+    private fun onSettingsChanged() {
+        val enabled = pulseEnabled
+        Log.d(TAG, "onSettingsChanged: enabled=$enabled listenersRegistered=$listenersRegistered")
+        if (enabled && !listenersRegistered) {
+            ScrimUtils.get().addListener(this)
+            MediaSessionManager.get().addListener(this)
+            mainHandler.post(musicPollRunnable)
+            listenersRegistered = true
+            Log.d(TAG, "Listeners registered, poll started")
+        } else if (!enabled && listenersRegistered) {
+            ScrimUtils.get().removeListener(this)
+            MediaSessionManager.get().removeListener(this)
+            mainHandler.removeCallbacks(musicPollRunnable)
+            listenersRegistered = false
+            pulseRunning = false
+            mainScope.launch {
+                view.setVisibility(false)
+                audioProcessor.stopCapture()
+            }
+            return
+        }
+        updateState()
+        // Force-apply even if state didn't change value
+        onPulseRunningChanged(pulseRunning)
+    }
+
+    // -------------------------------------------------------------------------
+    // DataListener — FFT data from audio processor (already on main thread)
+    // -------------------------------------------------------------------------
+
     override fun onDataUpdate(data: PulseData) {
         if (hapticsMode > 0) {
             bassHaptics.process(data.fftBytes)
         }
         if (pulseRunning) {
-            mainScope.launch { 
-                view.updateVisualizerData(data) 
-            }
+            view.updateVisualizerData(data)
         }
     }
 
+    // -------------------------------------------------------------------------
+    // MediaDataListener
+    // -------------------------------------------------------------------------
+
     override fun onPlaybackStateChanged(state: Int) {
-        isMediaPlaying = state == PlaybackState.STATE_PLAYING
+        Log.d(TAG, "onPlaybackStateChanged: state=$state")
         updateState()
     }
 
@@ -152,8 +205,11 @@ class PulseViewController @Inject constructor(
         if (pulseEnabled) view.onMediaColorsChanged(color)
     }
 
+    // -------------------------------------------------------------------------
+    // ScrimEventListener
+    // -------------------------------------------------------------------------
+
     override fun onKeyguardShowingChanged(showing: Boolean) {
-        keyguardShowing = showing
         updateState()
     }
 
@@ -175,27 +231,27 @@ class PulseViewController @Inject constructor(
     }
 
     override fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
-        bouncerShowingOrKeyguardDismissing = fadingAway
+        bouncerShowing = fadingAway
         updateState()
     }
 
     override fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
-        bouncerShowingOrKeyguardDismissing = goingAway
+        if (!goingAway) bouncerShowing = false
         updateState()
     }
 
     override fun onPrimaryBouncerShowingChanged(showing: Boolean) {
-        bouncerShowingOrKeyguardDismissing = showing
+        bouncerShowing = showing
         updateState()
     }
 
     override fun onScreenTurnedOff() {
-        isScreenOff = true
+        isScreenOn = false
         updateState()
     }
 
     override fun onStartedWakingUp() {
-        isScreenOff = false
+        isScreenOn = true
         updateState()
     }
 
@@ -205,9 +261,14 @@ class PulseViewController @Inject constructor(
         updateState()
     }
 
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
+
     fun destroy() {
         pulseRunning = false
         settingsRepository.stopObserving()
+        mainHandler.removeCallbacks(musicPollRunnable)
         if (listenersRegistered) {
             ScrimUtils.get().removeListener(this)
             MediaSessionManager.get().removeListener(this)
@@ -216,19 +277,5 @@ class PulseViewController @Inject constructor(
         audioProcessor.cleanup()
         bassHaptics.reset()
         mainScope.cancel()
-    }
-
-    companion object {
-        private const val TAG = "PulseViewController"
-
-        @Volatile
-        private var INSTANCE: PulseViewController? = null
-
-        @JvmStatic
-        fun get(context: Context): PulseViewController {
-            return INSTANCE ?: throw IllegalStateException(
-                "PulseViewController not initialized"
-            )
-        }
     }
 }

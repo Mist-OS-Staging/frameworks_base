@@ -216,6 +216,9 @@ constructor(
             if (artworkBitmap == null) {
                 artworkBitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             }
+            if (artworkBitmap == null) {
+                artworkBitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+            }
             val artworkIcon =
                 if (artworkBitmap == null) {
                     notification.getLargeIcon()

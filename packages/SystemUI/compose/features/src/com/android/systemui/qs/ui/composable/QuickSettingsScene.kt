@@ -432,6 +432,7 @@ private fun ContentScope.QuickSettingsContent(
                         viewModel.qsContainerViewModel,
                         mediaInRow,
                         Modifier.padding(horizontal = shadeHorizontalPadding),
+                        isExpanded = true,
                     )
                 }
             }

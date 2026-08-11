@@ -129,7 +129,7 @@ public fun Loaded.asImageBitmap(): ImageBitmap {
         } else {
             toBitmap(
                     width = intrinsicWidth.takeIf { it > 0 } ?: 1,
-                    height = intrinsicWidth.takeIf { it > 0 } ?: 1,
+                    height = intrinsicHeight.takeIf { it > 0 } ?: 1,
                 )
                 .asImageBitmap()
         }

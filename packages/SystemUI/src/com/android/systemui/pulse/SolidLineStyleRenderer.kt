@@ -86,14 +86,17 @@ internal class SolidLineStyleRenderer(
         val useRounded = settings.isRoundedBarsEnabled()
         val path = roundedPath
         val radii = cornerRadii
+        val heightMultiplier: Float = settings.getHeightMultiplier().toFloat() / 100f
+        val minHeightPx = 14f
+        android.util.Log.d("SolidLineRenderer", "draw: count=$count w=$viewWidth h=$viewHeight hMult=$heightMultiplier paint.color=${Integer.toHexString(paint.color)}")
 
         for (i in 0 until count) {
             val rect = barRects[i]
-            val target = targetHeights.getOrElse(i) { 2f }
-            val current = currentHeights.getOrElse(i) { 2f }
-            var h = current + smoothing * (target - current)
-            if (h < 2f) h = 2f
-            val maxH = rect.bottom
+            val target: Float = targetHeights.getOrElse(i) { minHeightPx }
+            val current: Float = currentHeights.getOrElse(i) { minHeightPx }
+            var h: Float = (current + smoothing * (target - current)) * heightMultiplier
+            if (h < minHeightPx) h = minHeightPx
+            val maxH: Float = rect.bottom
             if (h > maxH) h = maxH
             currentHeights[i] = h
             rect.top = rect.bottom - h
