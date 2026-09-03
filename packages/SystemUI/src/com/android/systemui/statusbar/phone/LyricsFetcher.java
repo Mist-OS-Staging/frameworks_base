@@ -290,7 +290,6 @@ public class LyricsFetcher {
         mRetryCount = 0;
 
         final int generation = ++mFetchGeneration;
-
         HttpURLConnection stale = mInFlightConnection;
         if (stale != null) {
             mWorkerHandler.post(stale::disconnect);
@@ -342,13 +341,14 @@ public class LyricsFetcher {
                         plainLyrics = plain;
                     }
                 }
-            } else {
+                } else {
                 failed = true;
             }
         } catch (Exception e) {
+            failed = true;
             if (generation == mFetchGeneration && DEBUG) Log.e(TAG, "Failed to fetch lyrics", e);
             failed = (generation == mFetchGeneration);
-        } finally {
+            } finally {
             if (conn != null) {
                 conn.disconnect();
             }
