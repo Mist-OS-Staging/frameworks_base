@@ -45,7 +45,6 @@ public final class SpatialEffectController implements SensorEventListener {
     private static final float MAX_Y_DP = 18f;
     private static final float BACKGROUND_MULTIPLIER = 0.50f;
     private static final float FOREGROUND_MULTIPLIER = 0.60f;
-    private static final float OVERSCAN_SCALE = 1.08f;
     private static final float SPRING_FACTOR = 0.16f;
     private static final float SETTLE_THRESHOLD_PX = 0.25f;
     private static final long RESET_DURATION_MS = 300;
@@ -198,7 +197,6 @@ public final class SpatialEffectController implements SensorEventListener {
                 mSubjectView.setTranslationY(0f);
             }
             refreshCachedDisplayRotation();
-            applyOverscanScale();
             startSensing();
         } else {
             stopSensingAndReset();
@@ -301,8 +299,6 @@ public final class SpatialEffectController implements SensorEventListener {
             mBackgroundView.animate()
                     .translationX(0f)
                     .translationY(0f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
                     .setDuration(RESET_DURATION_MS)
                     .withEndAction(sharedEnd)
                     .start();
@@ -311,29 +307,9 @@ public final class SpatialEffectController implements SensorEventListener {
             mSubjectView.animate()
                     .translationX(0f)
                     .translationY(0f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
                     .setDuration(RESET_DURATION_MS)
                     .withEndAction(sharedEnd)
                     .start();
-        }
-    }
-
-    private void applyOverscanScale() {
-        DisplayMetrics dm = mContext.getResources().getDisplayMetrics();
-        float pivotX = dm.widthPixels / 2f;
-        float pivotY = dm.heightPixels / 2f;
-        if (mBackgroundView != null) {
-            mBackgroundView.setPivotX(mBackgroundView.getWidth() > 0 ? mBackgroundView.getWidth() / 2f : pivotX);
-            mBackgroundView.setPivotY(mBackgroundView.getHeight() > 0 ? mBackgroundView.getHeight() / 2f : pivotY);
-            mBackgroundView.setScaleX(OVERSCAN_SCALE);
-            mBackgroundView.setScaleY(OVERSCAN_SCALE);
-        }
-        if (mSubjectView != null) {
-            mSubjectView.setPivotX(mSubjectView.getWidth() > 0 ? mSubjectView.getWidth() / 2f : pivotX);
-            mSubjectView.setPivotY(mSubjectView.getHeight() > 0 ? mSubjectView.getHeight() / 2f : pivotY);
-            mSubjectView.setScaleX(OVERSCAN_SCALE);
-            mSubjectView.setScaleY(OVERSCAN_SCALE);
         }
     }
 
