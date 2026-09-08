@@ -281,4 +281,7 @@
 
     <!-- Clock Weather -->
     <string name="clock_ide_weather_data_unavailable">null</string>
+
+    <!-- Label for UI element which writes a clipboard-only screenshot to storage [CHAR LIMIT=30] -->
+    <string name="screenshot_save_to_storage_label">Save to storage</string>
 </resources>
