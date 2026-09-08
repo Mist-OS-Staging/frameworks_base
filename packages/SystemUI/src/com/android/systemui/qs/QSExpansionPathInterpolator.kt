@@ -29,7 +29,11 @@ class QSExpansionPathInterpolator @Inject constructor() {
         get() = pathInterpolatorBuilder.xInterpolator
 
     val yInterpolator: Interpolator
-        get() = pathInterpolatorBuilder.yInterpolator
+        get() = if (com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
+            com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator()
+        } else {
+            pathInterpolatorBuilder.yInterpolator
+        }
 
     fun setControlX2(value: Float) {
         if (value != lastX) {

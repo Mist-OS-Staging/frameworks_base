@@ -2043,7 +2043,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         ValueAnimator animator = ValueAnimator.ofFloat(
                 mExpansionHeight, target);
         if (isClick) {
-            animator.setInterpolator(Interpolators.TOUCH_RESPONSE);
+            animator.setInterpolator(
+                    com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled()
+                            ? com.android.internal.util.mist.MistifyFluidMotionHelper.getSpringInterpolator()
+                            : Interpolators.TOUCH_RESPONSE);
             animator.setDuration(368);
         } else {
             if (mFlingQsWithoutClickListener != null) {

@@ -40,6 +40,8 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 
+import com.android.internal.util.mist.MistifyFluidMotionHelper;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -772,17 +774,21 @@ public class EdgeEffect {
             }
             return;
         }
-        final double mDampedFreq = NATURAL_FREQUENCY * Math.sqrt(1 - DAMPING_RATIO * DAMPING_RATIO);
+        final boolean isFluid = MistifyFluidMotionHelper.isFluidAnimationEnabled();
+        final double dampingRatio = isFluid ? 0.78 : DAMPING_RATIO;
+        final double naturalFreq = isFluid ? 28.0 : NATURAL_FREQUENCY;
+
+        final double mDampedFreq = naturalFreq * Math.sqrt(1 - dampingRatio * dampingRatio);
 
         // We're always underdamped, so we can use only those equations:
         double cosCoeff = mDistance * mHeight;
-        double sinCoeff = (1 / mDampedFreq) * (DAMPING_RATIO * NATURAL_FREQUENCY
+        double sinCoeff = (1 / mDampedFreq) * (dampingRatio * naturalFreq
                 * mDistance * mHeight + mVelocity);
-        double distance = Math.pow(Math.E, -DAMPING_RATIO * NATURAL_FREQUENCY * deltaT)
+        double distance = Math.pow(Math.E, -dampingRatio * naturalFreq * deltaT)
                 * (cosCoeff * Math.cos(mDampedFreq * deltaT)
                 + sinCoeff * Math.sin(mDampedFreq * deltaT));
-        double velocity = distance * (-NATURAL_FREQUENCY) * DAMPING_RATIO
-                + Math.pow(Math.E, -DAMPING_RATIO * NATURAL_FREQUENCY * deltaT)
+        double velocity = distance * (-naturalFreq) * dampingRatio
+                + Math.pow(Math.E, -dampingRatio * naturalFreq * deltaT)
                 * (-mDampedFreq * cosCoeff * Math.sin(mDampedFreq * deltaT)
                 + mDampedFreq * sinCoeff * Math.cos(mDampedFreq * deltaT));
         mDistance = (float) distance / mHeight;
@@ -831,9 +837,12 @@ public class EdgeEffect {
     private float dampStretchVector(float normalizedVec) {
         float sign = normalizedVec > 0 ? 1f : -1f;
         float overscroll = Math.abs(normalizedVec);
-        float linearIntensity = LINEAR_STRETCH_INTENSITY * overscroll;
+        final boolean isFluid = MistifyFluidMotionHelper.isFluidAnimationEnabled();
+        float linearStretchIntensity = isFluid ? 0.028f : LINEAR_STRETCH_INTENSITY;
+        float expStretchIntensity = isFluid ? 0.028f : EXP_STRETCH_INTENSITY;
+        float linearIntensity = linearStretchIntensity * overscroll;
         double scalar = Math.E / SCROLL_DIST_AFFECTED_BY_EXP_STRETCH;
-        double expIntensity = EXP_STRETCH_INTENSITY * (1 - Math.exp(-overscroll * scalar));
+        double expIntensity = expStretchIntensity * (1 - Math.exp(-overscroll * scalar));
         return sign * (float) (linearIntensity + expIntensity);
     }
 }

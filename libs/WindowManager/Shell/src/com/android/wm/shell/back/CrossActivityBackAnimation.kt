@@ -28,6 +28,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Handler
 import android.os.RemoteException
+import android.util.Log
 import android.util.TimeUtils
 import android.view.Choreographer
 import android.view.IRemoteAnimationFinishedCallback
@@ -68,7 +69,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 abstract class CrossActivityBackAnimation(
-    private val context: Context,
+    protected val context: Context,
     private val background: BackAnimationBackground,
     private val rootTaskDisplayAreaOrganizer: RootTaskDisplayAreaOrganizer,
     protected val transaction: SurfaceControl.Transaction,
@@ -108,6 +109,8 @@ abstract class CrossActivityBackAnimation(
     private var triggerBack = false
     private var finishCallback: IRemoteAnimationFinishedCallback? = null
     private val progressAnimator = BackProgressAnimator()
+    private var postCommitValueAnimator: ValueAnimator? = null
+    private var postCommitFlingAnimation: SpringAnimation? = null
     protected val displayBoundsMargin =
         context.resources.getDimension(R.dimen.cross_task_back_vertical_margin)
 
@@ -179,13 +182,21 @@ abstract class CrossActivityBackAnimation(
         }
 
     protected open fun startBackAnimation(backMotionEvent: BackMotionEvent) {
+        postCommitValueAnimator?.cancel()
+        postCommitValueAnimator = null
+        postCommitFlingAnimation?.cancel()
+        postCommitFlingAnimation = null
         if (enteringTarget == null || closingTarget == null) {
+            Log.w("MistifyBack", "GESTURE_START skipped: targets null entering=" + enteringTarget + " closing=" + closingTarget)
             ProtoLog.d(
                 ShellProtoLogGroup.WM_SHELL_BACK_PREVIEW,
                 "Entering target or closing target is null.",
             )
             return
         }
+        Log.d("MistifyBack", "GESTURE_START class=" + this.javaClass.simpleName
+                + " edge=" + backMotionEvent.swipeEdge
+                + " fluid=" + com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context))
         swipeEdge = backMotionEvent.swipeEdge
         triggerBack = backMotionEvent.triggerBack
         initialTouchPos.set(backMotionEvent.touchX, backMotionEvent.touchY)
@@ -329,15 +340,27 @@ abstract class CrossActivityBackAnimation(
     }
 
     protected open fun onGestureCommitted(velocity: Float) {
+        postCommitValueAnimator?.cancel()
+        postCommitValueAnimator = null
+        postCommitFlingAnimation?.cancel()
+        postCommitFlingAnimation = null
+
         if (
             closingTarget?.leash == null ||
                 enteringTarget?.leash == null ||
                 !enteringTarget!!.leash.isValid ||
                 !closingTarget!!.leash.isValid
         ) {
+            Log.w("MistifyBack", "POST_COMMIT skipped: invalid targets closing=" + closingTarget + " entering=" + enteringTarget)
             finishAnimation()
             return
         }
+
+        val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
+        Log.d("MistifyBack", "POST_COMMIT_START class=" + this.javaClass.simpleName
+                + " duration=" + getPostCommitAnimationDuration()
+                + " velocity=" + velocity
+                + " fluid=" + isFluid)
 
         // kick off spring animation with the current velocity from the pre-commit phase, this
         // affects the scaling of the closing and/or opening activity during post-commit
@@ -347,11 +370,19 @@ abstract class CrossActivityBackAnimation(
         if (gestureProgress < 0.1f) {
             startVelocity = startVelocity.coerceAtLeast(DEFAULT_FLING_VELOCITY)
         }
+        if (isFluid) {
+            postCommitFlingSpring.stiffness = com.android.internal.util.mist.MistifyFluidMotionHelper.SPRING_STIFFNESS_FLUID
+            postCommitFlingSpring.dampingRatio = com.android.internal.util.mist.MistifyFluidMotionHelper.SPRING_DAMPING_RATIO_FLUID
+        } else {
+            postCommitFlingSpring.stiffness = SpringForce.STIFFNESS_LOW
+            postCommitFlingSpring.dampingRatio = SpringForce.DAMPING_RATIO_LOW_BOUNCY
+        }
         val flingAnimation =
             SpringAnimation(postCommitFlingScale, SPRING_SCALE)
                 .setStartVelocity(-startVelocity.coerceIn(0f, MAX_FLING_VELOCITY))
                 .setStartValue(SPRING_SCALE)
                 .setSpring(postCommitFlingSpring)
+        postCommitFlingAnimation = flingAnimation
         flingAnimation.start()
         // do an animation-frame immediately to prevent idle frame
         flingAnimation.doAnimationFrame(
@@ -360,6 +391,7 @@ abstract class CrossActivityBackAnimation(
 
         val valueAnimator =
             ValueAnimator.ofFloat(1f, 0f).setDuration(getPostCommitAnimationDuration())
+        postCommitValueAnimator = valueAnimator
         valueAnimator.addUpdateListener { animation: ValueAnimator ->
             val progress = animation.animatedFraction
             onPostCommitProgress(progress)
@@ -370,6 +402,9 @@ abstract class CrossActivityBackAnimation(
         valueAnimator.addListener(
             object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
+                    if (postCommitValueAnimator === animation) {
+                        postCommitValueAnimator = null
+                    }
                     background.resetStatusBarCustomization()
                     finishAnimation()
                 }
@@ -383,6 +418,14 @@ abstract class CrossActivityBackAnimation(
     }
 
     protected open fun finishAnimation() {
+        postCommitValueAnimator?.cancel()
+        postCommitValueAnimator = null
+        postCommitFlingAnimation?.cancel()
+        postCommitFlingAnimation = null
+        Log.d("MistifyBack", "POST_COMMIT_END class=" + this.javaClass.simpleName
+                + " triggerBack=" + triggerBack
+                + " fluid=" + com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context))
+
         enteringTarget?.let {
             if (it.leash != null && it.leash.isValid) {
                 transaction.setCornerRadius(it.leash, 0f)
@@ -425,11 +468,16 @@ abstract class CrossActivityBackAnimation(
         if (leash == null || !leash.isValid) return
         tempRectF.set(rect)
         if (flingMode != FlingMode.NO_FLING) {
+            val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
             lastPostCommitFlingScale =
+                if (isFluid) {
+                    postCommitFlingScale.value / SPRING_SCALE
+                } else {
                 min(
                     postCommitFlingScale.value / SPRING_SCALE,
                     if (flingMode == FlingMode.FLING_BOUNCE) 1f else lastPostCommitFlingScale,
                 )
+            }
             // apply an additional scale to the closing target to account for fling velocity
             tempRectF.scaleCentered(lastPostCommitFlingScale)
         }
@@ -625,11 +673,15 @@ abstract class CrossActivityBackAnimation(
 
         override fun onBackCancelled() {
             triggerBack = false
+            Log.d("MistifyBack", "GESTURE_CANCEL class=" + this@CrossActivityBackAnimation.javaClass.simpleName
+                    + " fluid=" + com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context))
             progressAnimator.onBackCancelled { finishAnimation() }
         }
 
         override fun onBackInvoked() {
             triggerBack = true
+            Log.d("MistifyBack", "GESTURE_COMMIT class=" + this@CrossActivityBackAnimation.javaClass.simpleName
+                    + " fluid=" + com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context))
             progressAnimator.reset()
             onGestureCommitted(velocityTracker.calculateVelocity())
         }
@@ -697,7 +749,6 @@ private fun isDarkMode(context: Context): Boolean {
 }
 
 internal fun RectF.setInterpolatedRectF(start: RectF, target: RectF, progress: Float) {
-    require(!(progress < 0 || progress > 1)) { "Progress value must be between 0 and 1" }
     left = start.left + (target.left - start.left) * progress
     top = start.top + (target.top - start.top) * progress
     right = start.right + (target.right - start.right) * progress

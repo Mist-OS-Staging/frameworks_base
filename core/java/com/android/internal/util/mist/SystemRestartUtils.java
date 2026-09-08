@@ -16,27 +16,24 @@
 
 package com.android.internal.util.mist;
 
-import android.app.AlertDialog;
-import android.app.IActivityManager;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.os.Handler;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.util.Log;
 
 import com.android.internal.R;
 import com.android.internal.statusbar.IStatusBarService;
 
 import java.lang.ref.WeakReference;
 
-import java.util.List;
-
 public class SystemRestartUtils {
 
-    private static final int RESTART_TIMEOUT = 1000;
+    private static final String TAG = "MistifyFluid";
+    private static final int RESTART_TIMEOUT = 800;
 
     public static void showSystemRestartDialog(Context context) {
         new AlertDialog.Builder(context)
@@ -124,37 +121,32 @@ public class SystemRestartUtils {
                 .show();
     }
 
-    public static void restartProcess(Context context, String processName) {
-        new RestartTask(context, processName).execute();
+    public static void restartProcess(Context context, String packageName) {
+        new ForceStopTask(context, packageName).execute();
     }
 
-    private static class RestartTask extends AsyncTask<Void, Void, Void> {
+    private static class ForceStopTask extends AsyncTask<Void, Void, Void> {
         private final WeakReference<Context> mContext;
         private final String mPackageName;
 
-        RestartTask(Context context, String packageName) {
+        ForceStopTask(Context context, String packageName) {
             mContext = new WeakReference<>(context);
             mPackageName = packageName;
         }
 
         @Override
         protected Void doInBackground(Void... params) {
+            Context ctx = mContext.get();
+            if (ctx == null) return null;
             try {
-                ActivityManager am = (ActivityManager) mContext.get().getSystemService(Context.ACTIVITY_SERVICE);
+                ActivityManager am = ctx.getSystemService(ActivityManager.class);
                 if (am != null) {
-                    List<ActivityManager.RunningAppProcessInfo> runningProcesses = am.getRunningAppProcesses();
-                    for (ActivityManager.RunningAppProcessInfo appProcess : runningProcesses) {
-                        if (appProcess.pkgList != null) {
-                            for (String pkg : appProcess.pkgList) {
-                                if (pkg.equals(mPackageName)) {
-                                    Process.killProcess(appProcess.pid);
-                                    return null;
-                                }
-                            }
-                        }
-                    }
+                    Log.d(TAG, "restart executed - forceStopPackage: " + mPackageName);
+                    am.forceStopPackage(mPackageName);
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "restart failed for " + mPackageName + ": " + e.getMessage());
+            }
             return null;
         }
     }
@@ -164,6 +156,8 @@ public class SystemRestartUtils {
     }
 
     public static void showSystemUIRestartDialog(Context context) {
+        Log.d(TAG, "SystemUI restart requested");
         showRestartDialog(context, R.string.systemui_restart_title, R.string.systemui_restart_message, () -> restartProcess(context, "com.android.systemui"));
     }
 }
+

@@ -46,12 +46,13 @@ constructor(
      */
     fun CoroutineScope.bind(view: View, viewsToAnimate: Array<View>) {
         val animationValueHolder = FloatValueHolder(0f)
+        val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(view.context)
         val animation: SpringAnimation =
             SpringAnimation(animationValueHolder)
                 .setSpring(
                     SpringForce(0f).apply {
-                        stiffness = 800f
-                        dampingRatio = 0.6f
+                        stiffness = if (isFluid) 500f else 800f
+                        dampingRatio = if (isFluid) 0.55f else 0.6f
                     }
                 )
                 .addUpdateListener { _, value, _ ->
@@ -62,6 +63,9 @@ constructor(
             .onEach { event ->
                 when (event) {
                     is OverscrollEventModel.Animate -> {
+                        val fluidNow = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(view.context)
+                        animation.spring.stiffness = if (fluidNow) 500f else 800f
+                        animation.spring.dampingRatio = if (fluidNow) 0.55f else 0.6f
                         animation.animateToFinalPosition(event.targetOffsetPx)
                     }
                     is OverscrollEventModel.Move -> {

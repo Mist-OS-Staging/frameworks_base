@@ -127,6 +127,32 @@ please see styles_device_defaults.xml.
         <item name="fragmentFadeExitAnimation">@animator/fragment_fade_exit</item>
     </style>
 
+    <style name="Animation.MistifyFluid" parent="Animation.Activity">
+        <item name="activityOpenEnterAnimation">@anim/mist_activity_open_enter</item>
+        <item name="activityOpenExitAnimation">@anim/mist_activity_open_exit</item>
+        <item name="activityCloseEnterAnimation">@anim/mist_activity_close_enter</item>
+        <item name="activityCloseExitAnimation">@anim/mist_activity_close_exit</item>
+        <item name="taskOpenEnterAnimation">@anim/mist_task_open_enter</item>
+        <item name="taskOpenExitAnimation">@anim/mist_task_open_exit</item>
+        <item name="taskCloseEnterAnimation">@anim/mist_task_close_enter</item>
+        <item name="taskCloseExitAnimation">@anim/mist_task_close_exit</item>
+        <item name="taskToFrontEnterAnimation">@anim/mist_task_open_enter</item>
+        <item name="taskToFrontExitAnimation">@anim/mist_task_open_exit</item>
+        <item name="taskToBackEnterAnimation">@anim/mist_task_close_enter</item>
+        <item name="wallpaperOpenEnterAnimation">@anim/mist_activity_open_enter</item>
+        <item name="wallpaperOpenExitAnimation">@anim/mist_activity_open_exit</item>
+        <item name="wallpaperCloseEnterAnimation">@anim/mist_activity_close_enter</item>
+        <item name="wallpaperCloseExitAnimation">@anim/mist_activity_close_exit</item>
+        <item name="wallpaperIntraOpenEnterAnimation">@anim/mist_activity_open_enter</item>
+        <item name="wallpaperIntraOpenExitAnimation">@anim/mist_activity_open_exit</item>
+        <item name="wallpaperIntraCloseEnterAnimation">@anim/mist_activity_close_enter</item>
+        <item name="wallpaperIntraCloseExitAnimation">@anim/mist_activity_close_exit</item>
+        <item name="fragmentOpenEnterAnimation">@animator/mist_fragment_open_enter</item>
+        <item name="fragmentOpenExitAnimation">@animator/mist_fragment_open_exit</item>
+        <item name="fragmentCloseEnterAnimation">@animator/mist_fragment_close_enter</item>
+        <item name="fragmentCloseExitAnimation">@animator/mist_fragment_close_exit</item>
+    </style>
+
     <!-- Standard animations for a non-full-screen window or activity. -->
     <style name="Animation.Dialog">
         <item name="windowEnterAnimation">@anim/dialog_enter</item>

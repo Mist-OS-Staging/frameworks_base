@@ -29,6 +29,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.dynamicanimation.animation.DynamicAnimation;
 import com.android.internal.dynamicanimation.animation.SpringAnimation;
 import com.android.internal.dynamicanimation.animation.SpringForce;
+import com.android.internal.util.mist.MistifyFluidMotionHelper;
 
 /**
  * An animator that drives the predictive back progress with a spring.
@@ -158,8 +159,10 @@ public class BackProgressAnimator implements DynamicAnimation.OnAnimationUpdateL
             mSpring.setSpring(mButtonSpringForce);
             mSpring.animateToFinalPosition(SCALE_FACTOR);
         } else {
-            mSpring.setSpring(mGestureSpringForce);
-            onBackProgressed(event);
+                mGestureSpringForce.setStiffness(SpringForce.STIFFNESS_MEDIUM);
+                mGestureSpringForce.setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY);
+                mSpring.setSpring(mGestureSpringForce);
+                onBackProgressed(event);
         }
     }
 
@@ -194,7 +197,17 @@ public class BackProgressAnimator implements DynamicAnimation.OnAnimationUpdateL
      * @param finishCallback the callback to be invoked when the progress is reach to 0.
      */
     public void onBackCancelled(@NonNull Runnable finishCallback) {
-        mButtonSpringForce.setStiffness(SpringForce.STIFFNESS_MEDIUM);
+     if (MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
+            mGestureSpringForce.setStiffness(MistifyFluidMotionHelper.SPRING_STIFFNESS_FLUID);
+            mGestureSpringForce.setDampingRatio(MistifyFluidMotionHelper.SPRING_DAMPING_RATIO_FLUID);
+            mButtonSpringForce.setStiffness(MistifyFluidMotionHelper.SPRING_STIFFNESS_FLUID);
+            mButtonSpringForce.setDampingRatio(MistifyFluidMotionHelper.SPRING_DAMPING_RATIO_FLUID);
+        } else {
+            mGestureSpringForce.setStiffness(SpringForce.STIFFNESS_MEDIUM);
+            mGestureSpringForce.setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY);
+            mButtonSpringForce.setStiffness(SpringForce.STIFFNESS_MEDIUM);
+            mButtonSpringForce.setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY);
+        }
         mBackCancelledFinishRunnable = finishCallback;
         mSpring.addEndListener(mOnAnimationEndListener);
         mSpring.animateToFinalPosition(0);

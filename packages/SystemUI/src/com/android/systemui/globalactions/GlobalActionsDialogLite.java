@@ -3565,14 +3565,19 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             // popup_exit_material.
             float translationPx;
             Resources resources = dialog.getContext().getResources();
+            final boolean isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(dialog.getContext());
             if (isEnter) {
                 translationPx = resources.getDimension(R.dimen.popup_enter_animation_from_y_delta);
-                animator.setInterpolator(Interpolators.STANDARD);
-                animator.setDuration(resources.getInteger(R.integer.config_activityDefaultDur));
+                animator.setInterpolator(isFluid
+                        ? com.android.internal.util.mist.MistifyFluidMotionHelper.getSpringInterpolator()
+                        : Interpolators.STANDARD);
+                animator.setDuration(isFluid ? 380 : resources.getInteger(R.integer.config_activityDefaultDur));
             } else {
                 translationPx = resources.getDimension(R.dimen.popup_exit_animation_to_y_delta);
-                animator.setInterpolator(Interpolators.STANDARD_ACCELERATE);
-                animator.setDuration(resources.getInteger(R.integer.config_activityShortDur));
+                animator.setInterpolator(isFluid
+                        ? com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator()
+                        : Interpolators.STANDARD_ACCELERATE);
+                animator.setDuration(isFluid ? 260 : resources.getInteger(R.integer.config_activityShortDur));
             }
 
             Window window = dialog.getWindow();

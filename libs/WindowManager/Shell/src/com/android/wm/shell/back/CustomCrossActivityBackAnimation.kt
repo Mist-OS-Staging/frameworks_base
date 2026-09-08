@@ -76,7 +76,8 @@ class CustomCrossActivityBackAnimation(
         rootTaskDisplayAreaOrganizer,
         SurfaceControl.Transaction(),
         CustomAnimationLoader(
-            TransitionAnimation(context, false /* debug */, "CustomCrossActivityBackAnimation")
+            TransitionAnimation(context, false /* debug */, "CustomCrossActivityBackAnimation"),
+            context
         ),
         handler,
         bubbleController,
@@ -105,6 +106,9 @@ class CustomCrossActivityBackAnimation(
     }
 
     override fun getPostCommitAnimationDuration(): Long {
+        if (com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)) {
+            return 300L
+        }
         return min(
             MAX_POST_COMMIT_ANIM_DURATION,
             max(closeAnimation!!.duration, enterAnimation!!.duration),
@@ -139,7 +143,14 @@ class CustomCrossActivityBackAnimation(
         super.onPostCommitProgress(linearProgress)
         if (closingTarget == null || enteringTarget == null) return
 
-        val closingProgress = closeAnimation!!.getPostCommitProgress(linearProgress)
+        val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
+        val progress = if (isFluid) {
+            com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator().getInterpolation(linearProgress)
+        } else {
+            linearProgress
+        }
+
+        val closingProgress = closeAnimation!!.getPostCommitProgress(progress)
         applyTransform(
             closingTarget!!.leash,
             currentClosingRect,
@@ -151,7 +162,7 @@ class CustomCrossActivityBackAnimation(
             MathUtils.lerp(
                 gestureProgress * PRE_COMMIT_MAX_PROGRESS,
                 1f,
-                enterAnimation!!.getPostCommitProgress(linearProgress),
+                enterAnimation!!.getPostCommitProgress(progress),
             )
         applyTransform(
             enteringTarget!!.leash,
@@ -225,7 +236,10 @@ class CustomCrossActivityBackAnimation(
 }
 
 /** Helper class to load custom animation. */
-class CustomAnimationLoader(private val transitionAnimation: TransitionAnimation) {
+class CustomAnimationLoader(
+    private val transitionAnimation: TransitionAnimation,
+    private val context: Context? = null,
+) {
 
     /**
      * Load both enter and exit animation for the close activity transition. Note that the result is
@@ -273,6 +287,14 @@ class CustomAnimationLoader(private val transitionAnimation: TransitionAnimation
                     else animationInfo.customExitAnim,
                 )
         } else if (animationInfo.windowAnimations != 0) {
+          val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
+            if (isFluid) {
+                a = transitionAnimation.loadDefaultAnimationAttr(
+                    if (enterAnimation) R.styleable.WindowAnimation_activityCloseEnterAnimation
+                    else R.styleable.WindowAnimation_activityCloseExitAnimation,
+                    false
+                )
+            } else {   
             // try to get animation from LayoutParams#windowAnimations
             a =
                 transitionAnimation.loadAnimationAttr(
@@ -282,6 +304,7 @@ class CustomAnimationLoader(private val transitionAnimation: TransitionAnimation
                     else R.styleable.WindowAnimation_activityCloseExitAnimation,
                     false, /* translucent */
                 )
+            }
         }
         // Only allow to load default animation for opening target.
         if (a == null && enterAnimation) {

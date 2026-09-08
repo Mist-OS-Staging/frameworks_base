@@ -171,7 +171,18 @@ public class TransitionAnimationHelper {
             }
         }
         if (animAttr != 0) {
-            if (overrideType == ANIM_FROM_STYLE && !isTask) {
+            android.util.Log.d("MistifyFluid", "loadAttributeAnimation: animAttr=0x"
+                    + Integer.toHexString(animAttr)
+                    + " type=" + transitTypeToString(type)
+                    + " enter=" + enter
+                    + " isTask=" + isTask
+                    + " overrideType=" + overrideType
+                    + " pkg=" + (options != null ? options.getPackageName() : "null")
+                    + " anims=0x" + (options != null ? Integer.toHexString(options.getAnimations()) : "0")
+                    + " fluid=" + TransitionAnimation.isFluidAnimationEnabled());
+            if (TransitionAnimation.isFluidAnimationEnabled()) {
+                a = transitionAnimation.loadDefaultAnimationAttr(animAttr, translucent);
+            } else if (overrideType == ANIM_FROM_STYLE && !isTask) {
                 final TransitionInfo.AnimationOptions.CustomActivityTransition customTransition =
                         getCustomActivityTransition(animAttr, options);
                 if (customTransition != null) {
