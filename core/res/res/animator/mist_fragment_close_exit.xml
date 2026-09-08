@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: MistOS
+     SPDX-License-Identifier: Apache-2.0
+-->
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <objectAnimator
+        android:interpolator="@interpolator/fast_out_linear_in"
+        android:valueFrom="1"
+        android:valueTo="0"
+        android:valueType="floatType"
+        android:propertyName="alpha"
+        android:duration="220" />
+    <objectAnimator
+        android:interpolator="@interpolator/fast_out_slow_in"
+        android:valueFrom="1"
+        android:valueTo="0.90"
+        android:valueType="floatType"
+        android:propertyName="scaleX"
+        android:duration="350" />
+    <objectAnimator
+        android:interpolator="@interpolator/fast_out_slow_in"
+        android:valueFrom="1"
+        android:valueTo="0.90"
+        android:valueType="floatType"
+        android:propertyName="scaleY"
+        android:duration="350" />
+</set>

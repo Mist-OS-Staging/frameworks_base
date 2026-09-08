@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2024 The Android Open Source Project
  *
@@ -201,12 +202,15 @@ constructor(
 
         view.applyAnimationProgress(FRACTION_HIDE, isLeft)
         val animationValueHolder = FloatValueHolder(FRACTION_HIDE)
+        val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(view.context)
+        val stiffness = if (isFluid) 420f else SPRING_STIFFNESS
+        val dampingRatio = if (isFluid) 0.72f else SPRING_DAMPING_RATIO
         val animation: SpringAnimation =
             SpringAnimation(animationValueHolder)
                 .setSpring(
                     SpringForce()
-                        .setStiffness(SPRING_STIFFNESS)
-                        .setDampingRatio(SPRING_DAMPING_RATIO)
+                        .setStiffness(stiffness)
+                        .setDampingRatio(dampingRatio)
                 )
                 .setMinimumVisibleChange(ANIMATION_MINIMUM_VISIBLE_CHANGE)
                 .addUpdateListener { _, value, _ -> view.applyAnimationProgress(value, isLeft) }
@@ -215,6 +219,9 @@ constructor(
         visibilityModel
             .conflate()
             .onEach {
+                val fluidNow = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(view.context)
+                animation.spring.stiffness = if (fluidNow) 420f else SPRING_STIFFNESS
+                animation.spring.dampingRatio = if (fluidNow) 0.72f else SPRING_DAMPING_RATIO
                 when (it) {
                     is VolumeDialogVisibilityModel.Visible -> {
                         tracer.traceVisibilityEnd(it)

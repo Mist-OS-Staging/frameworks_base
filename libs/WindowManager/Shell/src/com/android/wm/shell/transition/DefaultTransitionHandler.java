@@ -90,7 +90,11 @@ import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.UserHandle;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.provider.Settings;
 import android.util.ArrayMap;
+import android.util.Log;
 import android.view.SurfaceControl;
 import android.view.WindowManager;
 import android.view.animation.Animation;
@@ -202,6 +206,24 @@ public class DefaultTransitionHandler implements Transitions.TransitionHandler {
                 mMainHandler);
 
         TransitionAnimation.initAttributeCache(mContext, mMainHandler);
+        final boolean initialEnabled = Settings.System.getInt(
+                mContext.getContentResolver(), "mist_fluid_animation_enabled", 0) == 1;
+        TransitionAnimation.setFluidAnimationEnabled(initialEnabled);
+        Log.d("MistifyFluid", "Shell init - fluid animation enabled: " + initialEnabled);
+        final Uri fluidAnimUri = Settings.System.getUriFor("mist_fluid_animation_enabled");
+        mContext.getContentResolver().registerContentObserver(fluidAnimUri,
+                false,
+                new ContentObserver(mMainHandler) {
+                    @Override
+                    public void onChange(boolean selfChange) {
+                        final boolean enabled = Settings.System.getInt(
+                                mContext.getContentResolver(),
+                                "mist_fluid_animation_enabled", 0) == 1;
+                        Log.d("MistifyFluid", "Shell setting changed - fluid animation enabled: " + enabled);
+                        TransitionAnimation.setFluidAnimationEnabled(enabled);
+                    }
+                });
+
         mRoundedContentBounds.init();
     }
 
@@ -1060,6 +1082,9 @@ public class DefaultTransitionHandler implements Transitions.TransitionHandler {
         }
 
         if (a != null) {
+            Log.d("MistifyFluid", "transition type=" + type + " mode=" + changeMode
+                    + " isTask=" + isTask + " fluid=" + TransitionAnimation.isFluidAnimationEnabled()
+                    + " anim=" + a.getClass().getSimpleName());
             if (!a.isInitialized()) {
                 final Rect animationRange = TransitionUtil.isClosingType(changeMode)
                         ? change.getStartAbsBounds() : change.getEndAbsBounds();

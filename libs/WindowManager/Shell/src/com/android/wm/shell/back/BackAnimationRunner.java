@@ -216,6 +216,10 @@ public class BackAnimationRunner {
         return mAnimationCancelled;
     }
 
+    void resetAnimationCancelled() {
+        mAnimationCancelled = false;
+    }
+
     void resetWaitingAnimation() {
         mWaitingAnimation = false;
     }

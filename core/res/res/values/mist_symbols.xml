@@ -107,4 +107,20 @@
     <java-symbol type="dimen" format="float" name="presentation_clock_text_size" />
     <java-symbol type="dimen" format="float" name="large_clock_text_size" />
     <java-symbol type="dimen" format="float" name="small_clock_text_size" />
+
+    <!-- Mistify Fluid Animation style -->
+    <java-symbol type="style" name="Animation.MistifyFluid" />
+    <java-symbol type="anim" name="mist_activity_open_enter" />
+    <java-symbol type="anim" name="mist_activity_open_exit" />
+    <java-symbol type="anim" name="mist_activity_close_enter" />
+    <java-symbol type="anim" name="mist_activity_close_exit" />
+    <java-symbol type="anim" name="mist_task_open_enter" />
+    <java-symbol type="anim" name="mist_task_open_exit" />
+    <java-symbol type="anim" name="mist_task_close_enter" />
+    <java-symbol type="anim" name="mist_task_close_exit" />
+    <java-symbol type="interpolator" name="mist_spring" />
+    <java-symbol type="animator" name="mist_fragment_open_enter" />
+    <java-symbol type="animator" name="mist_fragment_open_exit" />
+    <java-symbol type="animator" name="mist_fragment_close_enter" />
+    <java-symbol type="animator" name="mist_fragment_close_exit" />
 </resources>

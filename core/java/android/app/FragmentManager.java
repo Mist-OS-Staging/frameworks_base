@@ -1127,7 +1127,9 @@ final class FragmentManagerImpl extends FragmentManager implements LayoutInflate
             return null;
         }
         
-        if (transitionStyle == 0 && mHost.onHasWindowAnimations()) {
+        if (com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
+            transitionStyle = com.android.internal.R.style.Animation_MistifyFluid;
+        } else if (transitionStyle == 0 && mHost.onHasWindowAnimations()) {
             transitionStyle = mHost.onGetWindowAnimations();
         }
         if (transitionStyle == 0) {
@@ -1141,6 +1143,11 @@ final class FragmentManagerImpl extends FragmentManager implements LayoutInflate
         
         if (anim == 0) {
             return null;
+        }
+        
+        if (com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
+            Log.d("MistifyFluid", "FragmentManager: fluid animator loaded res=0x"
+                    + Integer.toHexString(anim) + " (transit=" + transit + ", enter=" + enter + ")");
         }
         
         return AnimatorInflater.loadAnimator(mHost.getContext(), anim);

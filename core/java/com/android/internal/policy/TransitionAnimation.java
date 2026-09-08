@@ -41,6 +41,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.UserHandle;
+import android.util.Log;
 import android.util.Slog;
 import android.view.InflateException;
 import android.view.SurfaceControl;
@@ -108,6 +109,8 @@ public class TransitionAnimation {
             new PathInterpolator(0.3f, 0f, 0.1f, 1f);
 
     private static final String DEFAULT_PACKAGE = "android";
+
+    private static volatile boolean sFluidAnimationEnabled = false;
 
     private final Context mContext;
     private final String mTag;
@@ -259,6 +262,17 @@ public class TransitionAnimation {
     /** Same as {@code loadDefaultAnimationRes} for current user. */
     @Nullable
     public Animation loadDefaultAnimationRes(int resId) {
+       if (isFluidAnimationEnabled()) {
+            if (resId == com.android.internal.R.anim.task_fragment_open_enter) {
+                resId = com.android.internal.R.anim.mist_task_open_enter;
+            } else if (resId == com.android.internal.R.anim.task_fragment_open_exit) {
+                resId = com.android.internal.R.anim.mist_task_open_exit;
+            } else if (resId == com.android.internal.R.anim.task_fragment_close_enter) {
+                resId = com.android.internal.R.anim.mist_task_close_enter;
+            } else if (resId == com.android.internal.R.anim.task_fragment_close_exit) {
+                resId = com.android.internal.R.anim.mist_task_close_exit;
+            }
+        }
         return loadAnimationRes(DEFAULT_PACKAGE, resId, UserHandle.USER_CURRENT);
     }
 
@@ -296,8 +310,14 @@ public class TransitionAnimation {
     public int getDefaultAnimationResId(int animAttr) {
         int resId = Resources.ID_NULL;
         if (animAttr >= 0) {
-            AttributeCache.Entry ent = getCachedAnimations(DEFAULT_PACKAGE,
-                    mDefaultWindowAnimationStyleResId);
+            final boolean fluid = isFluidAnimationEnabled();
+            final int styleResId = fluid
+                    ? com.android.internal.R.style.Animation_MistifyFluid
+                    : mDefaultWindowAnimationStyleResId;
+            if (fluid) {
+                Log.d("MistifyFluid", "Shell transition received - fluid animation selected");
+            }
+            AttributeCache.Entry ent = getCachedAnimations(DEFAULT_PACKAGE, styleResId);
             if (ent != null) {
                 resId = ent.array.getResourceId(animAttr, 0);
             }
@@ -331,6 +351,21 @@ public class TransitionAnimation {
             resId = updateToTranslucentAnimIfNeeded(resId);
         }
         if (ResourceId.isValid(resId)) {
+            String resName = "unknown";
+            try {
+                resName = context.getResources().getResourceEntryName(resId);
+            } catch (Exception ignored) {
+            }
+            String styleName = "unknown";
+            try {
+                styleName = context.getResources().getResourceEntryName(animStyleResId);
+            } catch (Exception ignored) {
+            }
+            Log.d("MistifyFluid", "loadAnimationAttr: pkg=" + packageName
+                    + " style=0x" + Integer.toHexString(animStyleResId) + " (" + styleName + ")"
+                    + " animAttr=0x" + Integer.toHexString(animAttr)
+                    + " resId=0x" + Integer.toHexString(resId) + " (" + resName + ")"
+                    + " fluid=" + isFluidAnimationEnabled());
             return loadAnimationSafely(context, resId, mTag);
         }
         return null;
@@ -339,8 +374,25 @@ public class TransitionAnimation {
     /** Load animation by attribute Id from android package. */
     @Nullable
     public Animation loadDefaultAnimationAttr(int animAttr, boolean translucent) {
-        return loadAnimationAttr(DEFAULT_PACKAGE, mDefaultWindowAnimationStyleResId, animAttr,
-                translucent);
+        final boolean fluid = isFluidAnimationEnabled();
+        final int styleResId = fluid
+                ? com.android.internal.R.style.Animation_MistifyFluid
+                : mDefaultWindowAnimationStyleResId;
+        String styleName = fluid ? "Animation_MistifyFluid" : "mDefaultWindowAnimationStyleResId";
+        Log.d("MistifyFluid", "loadDefaultAnimationAttr: animAttr=0x" + Integer.toHexString(animAttr)
+                + " styleResId=0x" + Integer.toHexString(styleResId) + " (" + styleName + ")"
+                + " fluid=" + fluid);
+        return loadAnimationAttr(DEFAULT_PACKAGE, styleResId, animAttr, translucent);
+    }
+
+    public static void setFluidAnimationEnabled(boolean enabled) {
+        sFluidAnimationEnabled = enabled;
+        com.android.internal.util.mist.MistifyFluidMotionHelper.setFluidAnimationEnabled(enabled);
+    }
+
+    public static boolean isFluidAnimationEnabled() {
+        return sFluidAnimationEnabled
+                || com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled();
     }
 
     @Nullable
@@ -1016,8 +1068,11 @@ public class TransitionAnimation {
 
         // TODO: Use XML interpolators when we have log interpolators available in XML.
         final List<Animation> animations = set.getAnimations();
+        final Interpolator exitInterpolator = isFluidAnimationEnabled()
+                ? com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator()
+                : interpolator;
         for (int i = animations.size() - 1; i >= 0; --i) {
-            animations.get(i).setInterpolator(interpolator);
+            animations.get(i).setInterpolator(exitInterpolator);
         }
 
         return set;
@@ -1153,6 +1208,8 @@ public class TransitionAnimation {
     public static void initAttributeCache(Context context, Handler handler) {
         AttributeCache.init(context);
         AttributeCache.instance().monitorPackageRemove(handler);
+        com.android.internal.util.mist.MistifyFluidMotionHelper.init(context);
+        sFluidAnimationEnabled = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled();
     }
 
 }

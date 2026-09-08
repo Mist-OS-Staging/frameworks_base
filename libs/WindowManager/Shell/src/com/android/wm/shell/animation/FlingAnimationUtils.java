@@ -24,6 +24,7 @@ import android.view.animation.Interpolator;
 import android.view.animation.PathInterpolator;
 
 import com.android.wm.shell.shared.animation.Interpolators;
+import com.android.internal.util.mist.MistifyFluidMotionHelper;
 
 import javax.inject.Inject;
 
@@ -206,6 +207,18 @@ public class FlingAnimationUtils {
                 mY2 / mLinearOutSlowInX2, velocityFactor);
         float durationSeconds = startGradient * diff / velAbs;
         Interpolator slowInInterpolator = getInterpolator(startGradient, velocityFactor);
+        final boolean isFluid = MistifyFluidMotionHelper.isFluidAnimationEnabled();
+        if (isFluid) {
+            float distanceRatio = maxDistance > 0 ? Math.min(1.0f, Math.max(0.15f, diff / maxDistance)) : 0.5f;
+            // Physical spring settling duration floor: 340ms to 450ms based on travel distance
+            float minFluidDuration = 0.34f + 0.11f * distanceRatio;
+            durationSeconds = Math.max(durationSeconds, minFluidDuration);
+            durationSeconds = Math.min(durationSeconds, Math.max(maxLengthSeconds, 0.48f));
+            mAnimatorProperties.mInterpolator = MistifyFluidMotionHelper.getDampedSpringInterpolator();
+            mAnimatorProperties.mDuration = (long) (durationSeconds * 1000);
+            return mAnimatorProperties;
+        }
+
         if (durationSeconds <= maxLengthSeconds) {
             mAnimatorProperties.mInterpolator = slowInInterpolator;
         } else if (velAbs >= mMinVelocityPxPerSecond) {
@@ -302,6 +315,16 @@ public class FlingAnimationUtils {
         float startGradient = y2 / LINEAR_OUT_FASTER_IN_X2;
         Interpolator mLinearOutFasterIn = new PathInterpolator(0, 0, LINEAR_OUT_FASTER_IN_X2, y2);
         float durationSeconds = startGradient * diff / velAbs;
+        if (MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
+            float distanceRatio = maxDistance > 0 ? Math.min(1.0f, Math.max(0.15f, diff / maxDistance)) : 0.5f;
+            float minFluidDuration = 0.30f + 0.08f * distanceRatio; // 300ms to 380ms
+            durationSeconds = Math.max(durationSeconds, minFluidDuration);
+            durationSeconds = Math.min(durationSeconds, Math.max(maxLengthSeconds, 0.42f));
+            mAnimatorProperties.mInterpolator = Interpolators.FAST_OUT_SLOW_IN;
+            mAnimatorProperties.mDuration = (long) (durationSeconds * 1000);
+            return mAnimatorProperties;
+        }
+
         if (durationSeconds <= maxLengthSeconds) {
             mAnimatorProperties.mInterpolator = mLinearOutFasterIn;
         } else if (velAbs >= mMinVelocityPxPerSecond) {

@@ -99,7 +99,12 @@ class DefaultCrossActivityBackAnimation(
         targetEnteringRect.scaleCentered(MAX_SCALE)
     }
 
-    override fun getPostCommitAnimationDuration() = POST_COMMIT_DURATION
+    override fun getPostCommitAnimationDuration() =
+        if (com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)) {
+            300L
+        } else {
+            POST_COMMIT_DURATION
+        }
 
     override fun onGestureCommitted(velocity: Float) {
         // We enter phase 2 of the animation, the starting coordinates for phase 2 are the current
@@ -116,7 +121,12 @@ class DefaultCrossActivityBackAnimation(
     override fun onPostCommitProgress(linearProgress: Float) {
         super.onPostCommitProgress(linearProgress)
         val closingAlpha = max(1f - linearProgress * 5, 0f)
-        val progress = postCommitInterpolator.getInterpolation(linearProgress)
+        val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
+        val progress = if (isFluid) {
+            com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator().getInterpolation(linearProgress)
+        } else {
+            postCommitInterpolator.getInterpolation(linearProgress)
+        }
         currentClosingRect.setInterpolatedRectF(startClosingRect, targetClosingRect, progress)
         applyTransform(
             closingTarget?.leash,

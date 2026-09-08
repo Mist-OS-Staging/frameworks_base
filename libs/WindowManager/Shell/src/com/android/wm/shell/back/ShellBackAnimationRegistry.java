@@ -159,6 +159,17 @@ public class ShellBackAnimationRegistry {
                 BackNavigationInfo.TYPE_CROSS_ACTIVITY, mDefaultCrossActivityAnimation.getRunner());
     }
 
+    void reset() {
+        resetDefaultCrossActivity();
+        for (int i = 0; i < mAnimationDefinition.size(); i++) {
+            BackAnimationRunner runner = mAnimationDefinition.valueAt(i);
+            if (runner != null) {
+                runner.resetWaitingAnimation();
+                runner.resetAnimationCancelled();
+            }
+        }
+    }
+
     void onConfigurationChanged(Configuration newConfig) {
         if (mCustomizeActivityAnimation != null) {
             mCustomizeActivityAnimation.onConfigurationChanged(newConfig);
@@ -185,6 +196,9 @@ public class ShellBackAnimationRegistry {
             } else if (mDefaultCrossActivityAnimation != null) {
                 mDefaultCrossActivityAnimation.prepareNextAnimation(null,
                         backNavigationInfo.getLetterboxColor());
+                mAnimationDefinition.set(
+                        BackNavigationInfo.TYPE_CROSS_ACTIVITY,
+                        mDefaultCrossActivityAnimation.getRunner());
             }
         }
         BackAnimationRunner runner = mAnimationDefinition.get(type);
