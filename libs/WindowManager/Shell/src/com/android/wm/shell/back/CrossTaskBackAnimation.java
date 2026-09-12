@@ -277,11 +277,8 @@ public class CrossTaskBackAnimation extends ShellBackAnimation {
 
     private void applyFlingScale(RectF rect) {
         // apply a scale to the rect to account for fling velocity
-        final boolean isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(mContext);
-        final float flingScale = isFluid
-                ? (mPostCommitFlingScale.getValue() / SPRING_SCALE)
-                : Math.min(mPostCommitFlingScale.getValue() / SPRING_SCALE, 1f);
-        if (!isFluid && flingScale >= 1f) return;
+        final float flingScale = Math.min(mPostCommitFlingScale.getValue() / SPRING_SCALE, 1f);
+        if (flingScale >= 1f) return;
         scaleCentered(rect, flingScale, /* pivotX */ rect.right,
                 /* pivotY */ rect.top + rect.height() / 2);
     }
@@ -360,14 +357,6 @@ public class CrossTaskBackAnimation extends ShellBackAnimation {
         // affects the scaling of the closing and/or opening task during post-commit
         float startVelocity = mGestureProgress < 0.1f
                 ? -DEFAULT_FLING_VELOCITY : -mVelocityTracker.calculateVelocity();
-        final boolean isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(mContext);
-        if (isFluid) {
-            mPostCommitFlingSpring.setStiffness(com.android.internal.util.mist.MistifyFluidMotionHelper.SPRING_STIFFNESS_FLUID);
-            mPostCommitFlingSpring.setDampingRatio(0.65f);
-        } else {
-            mPostCommitFlingSpring.setStiffness(FLING_SPRING_STIFFNESS);
-            mPostCommitFlingSpring.setDampingRatio(1f);
-        }
         SpringAnimation flingAnimation =
                 new SpringAnimation(mPostCommitFlingScale, SPRING_SCALE)
                 .setStartVelocity(Math.max(-MAX_FLING_VELOCITY, Math.min(0f, startVelocity)))
@@ -387,9 +376,7 @@ public class CrossTaskBackAnimation extends ShellBackAnimation {
 
         ValueAnimator valueAnimator =
                 ValueAnimator.ofFloat(1f, 0f).setDuration(POST_ANIMATION_DURATION_MS);
-        valueAnimator.setInterpolator(isFluid
-                ? com.android.internal.util.mist.MistifyFluidMotionHelper.getDampedSpringInterpolator()
-                : mPostAnimationInterpolator);
+        valueAnimator.setInterpolator(mPostAnimationInterpolator);
         valueAnimator.addUpdateListener(animation -> {
             float progress = animation.getAnimatedFraction();
             updatePostCommitEnteringAnimation(progress);
