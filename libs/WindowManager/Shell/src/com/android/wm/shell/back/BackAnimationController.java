@@ -487,7 +487,7 @@ public class BackAnimationController implements RemoteCallable<BackAnimationCont
     }
 
     private void startPredictiveBackAnimationIfNeeded() {
-        if (!mThresholdCrossed && !(mCurrentTracker.isFinished() && mCurrentTracker.getTriggerBack())) {
+        if (!mThresholdCrossed) {
             return;
         }
         mShellExecutor.execute(() -> {
@@ -703,9 +703,7 @@ public class BackAnimationController implements RemoteCallable<BackAnimationCont
 
         @Override
         public void run() {
-            if (mRequestCount == 0 || (!mCurrentTracker.isActive()
-                    && !(MistifyFluidMotionHelper.isFluidAnimationEnabled()
-                         && mCurrentTracker.isFinished() && mCurrentTracker.getTriggerBack()))) {
+            if (mRequestCount == 0 || !mCurrentTracker.isActive()) {
                 return;
             }
             if (mRequestCount > 2) {
@@ -982,28 +980,18 @@ public class BackAnimationController implements RemoteCallable<BackAnimationCont
                             ? mBackNavigationInfo.getFocusedTaskId()
                             : INVALID_TASK_ID);
         }
-        final boolean hasRequestAnimation = mThresholdCrossed || mOnBackStartDispatched
-                || (MistifyFluidMotionHelper.isFluidAnimationEnabled()
-                    && activeTouchTracker.isFinished() && activeTouchTracker.getTriggerBack());
+        final boolean hasRequestAnimation = mThresholdCrossed || mOnBackStartDispatched;
         // Reset gesture states.
         mThresholdCrossed = false;
         mPointersPilfered = false;
         mBackGestureStarted = false;
         activeTouchTracker.setState(BackTouchTracker.TouchTrackerState.FINISHED);
+        mTransitionIdleRunner.mRequestCount = 0;
 
         if (mPostCommitAnimationInProgress) {
             ProtoLog.w(WM_SHELL_BACK_PREVIEW, "Animation is still running");
             return;
         }
-
-        if (MistifyFluidMotionHelper.isFluidAnimationEnabled()
-                && mTransitionIdleRunner.mRequestCount > 0) {
-            ProtoLog.d(WM_SHELL_BACK_PREVIEW, "Gesture finished while waiting for transition idle; "
-                    + "letting TransitionIdleRunner process post-commit");
-            return;
-        }
-
-        mTransitionIdleRunner.mRequestCount = 0;
 
         if (mBackNavigationInfo == null) {
             // No focus window found or core are running recents animation, inject back key as
@@ -1159,23 +1147,12 @@ public class BackAnimationController implements RemoteCallable<BackAnimationCont
         if (mCurrentTracker.isFinished() && mCurrentTracker.getTriggerBack()) {
             ProtoLog.d(WM_SHELL_BACK_PREVIEW, "resetTouchTracker -> start queued back navigation "
                     + "AND post commit animation");
-            if (MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
-                mBackGestureStarted = true;
-                startBackNavigation(mCurrentTracker);
-                startPredictiveBackAnimationIfNeeded();
-            } else {
             injectBackKey(mBackAnimationAdapter.mOriginDisplayId);
             finishBackNavigation(true);
             mCurrentTracker.reset();
-           }
         } else if (!mCurrentTracker.isFinished()) {
             ProtoLog.d(WM_SHELL_BACK_PREVIEW,
-                    "resetTouchTracker -> queued gesture not finished; start back navigation");
-            if (MistifyFluidMotionHelper.isFluidAnimationEnabled()) {
-                mBackGestureStarted = true;
-                startBackNavigation(mCurrentTracker);
-                startPredictiveBackAnimationIfNeeded();
-            }
+                    "resetTouchTracker -> queued gesture not finished; do nothing");
         } else {
             ProtoLog.d(WM_SHELL_BACK_PREVIEW, "resetTouchTracker -> reset queued gesture");
             mCurrentTracker.reset();

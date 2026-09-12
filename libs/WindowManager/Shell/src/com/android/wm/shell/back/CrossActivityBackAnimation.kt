@@ -370,13 +370,8 @@ abstract class CrossActivityBackAnimation(
         if (gestureProgress < 0.1f) {
             startVelocity = startVelocity.coerceAtLeast(DEFAULT_FLING_VELOCITY)
         }
-        if (isFluid) {
-            postCommitFlingSpring.stiffness = com.android.internal.util.mist.MistifyFluidMotionHelper.SPRING_STIFFNESS_FLUID
-            postCommitFlingSpring.dampingRatio = com.android.internal.util.mist.MistifyFluidMotionHelper.SPRING_DAMPING_RATIO_FLUID
-        } else {
-            postCommitFlingSpring.stiffness = SpringForce.STIFFNESS_LOW
-            postCommitFlingSpring.dampingRatio = SpringForce.DAMPING_RATIO_LOW_BOUNCY
-        }
+        postCommitFlingSpring.stiffness = SpringForce.STIFFNESS_LOW
+        postCommitFlingSpring.dampingRatio = SpringForce.DAMPING_RATIO_LOW_BOUNCY
         val flingAnimation =
             SpringAnimation(postCommitFlingScale, SPRING_SCALE)
                 .setStartVelocity(-startVelocity.coerceIn(0f, MAX_FLING_VELOCITY))
@@ -468,16 +463,11 @@ abstract class CrossActivityBackAnimation(
         if (leash == null || !leash.isValid) return
         tempRectF.set(rect)
         if (flingMode != FlingMode.NO_FLING) {
-            val isFluid = com.android.internal.util.mist.MistifyFluidMotionHelper.isFluidAnimationEnabled(context)
             lastPostCommitFlingScale =
-                if (isFluid) {
-                    postCommitFlingScale.value / SPRING_SCALE
-                } else {
                 min(
                     postCommitFlingScale.value / SPRING_SCALE,
                     if (flingMode == FlingMode.FLING_BOUNCE) 1f else lastPostCommitFlingScale,
                 )
-            }
             // apply an additional scale to the closing target to account for fling velocity
             tempRectF.scaleCentered(lastPostCommitFlingScale)
         }
@@ -749,6 +739,7 @@ private fun isDarkMode(context: Context): Boolean {
 }
 
 internal fun RectF.setInterpolatedRectF(start: RectF, target: RectF, progress: Float) {
+    require(!(progress < 0 || progress > 1)) { "Progress value must be between 0 and 1" }
     left = start.left + (target.left - start.left) * progress
     top = start.top + (target.top - start.top) * progress
     right = start.right + (target.right - start.right) * progress
