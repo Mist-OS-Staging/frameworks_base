@@ -336,6 +336,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private final Runnable mQsCollapseExpandAction = this::collapseOrExpandQs;
     private final QS.ScrollListener mQsScrollListener = this::onScroll;
 
+    private final AxQsShadePolicy mAxQsShadePolicy;
     private final WindowManagerProvider mWindowManagerProvider;
 
     @Inject
@@ -379,7 +380,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             Lazy<CommunalTransitionViewModel> communalTransitionViewModelLazy,
             Lazy<LargeScreenHeaderHelper> largeScreenHeaderHelperLazy,
             WindowManagerProvider windowManagerProvider,
-            TunerService tunerService
+            TunerService tunerService,
+            AxQsShadePolicy axQsShadePolicy
     ) {
         mDisplaySubcomponentRepository = displaySubcomponentRepository;
         mShadeDisplaysInteractorLazy = shadeDisplaysInteractorLazy;
@@ -435,6 +437,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
 
         dumpManager.registerDumpable(this);
 
+        mAxQsShadePolicy = axQsShadePolicy;
         mWindowManagerProvider = windowManagerProvider;
     }
 
@@ -633,11 +636,17 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        final float w = mQs.getView().getMeasuredWidth();
+        final boolean separateShade = mAxQsShadePolicy.isSeparateShade();
+        final float w = separateShade
+                ? mPanelView.getMeasuredWidth()
+                : mQs.getView().getMeasuredWidth();
         final float x = event.getX();
         float region = w * 1.f / 4.f; // TODO overlay region fraction?
         boolean showQsOverride = false;
 
+        if (separateShade) {
+            showQsOverride = mAxQsShadePolicy.isSeparateQuickPanelGesture(x, w);
+        } else {
         switch (mOneFingerQuickSettingsIntercept) {
             case 1: // Right side pulldown
                 showQsOverride = mQs.getView().isLayoutRtl() ? x < region : w - region < x;
@@ -645,6 +654,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             case 2: // Left side pulldown
                 showQsOverride = mQs.getView().isLayoutRtl() ? w - region < x : x < region;
                 break;
+            }
         }
         showQsOverride &= mBarState == StatusBarState.SHADE;
 
@@ -739,6 +749,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (!isExpansionEnabled() || mCollapsedOnDown || (keyguardShowing
                 && mKeyguardBypassController.getBypassEnabled() && !Flags.expandQsBypassEnabled())
                 || mSplitShadeEnabled) {
+            return false;
+        }
+        if (getExpanded() && yDiff < 0 && mAxQsShadePolicy.isSeparateShade()) {
             return false;
         }
         int headerTop, headerBottom;
@@ -1039,6 +1052,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (expandImmediate != isExpandImmediate()) {
             mShadeLog.logQsExpandImmediateChanged(expandImmediate);
             mShadeRepository.setLegacyExpandImmediate(expandImmediate);
+        }
+        if (!expandImmediate || mAxQsShadePolicy.isSeparateShade()) {
+            mNotificationStackScrollLayoutController.setQuickQsHidden(expandImmediate);
         }
     }
 
@@ -1651,6 +1667,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private void collapseOrExpandQs() {
         if (mSplitShadeEnabled) {
             return; // QS is always expanded in split shade
+        }
+        if (getExpanded() && mAxQsShadePolicy.collapseSeparateShade()) {
+            return;
         }
         onExpansionStarted();
         if (getExpanded()) {

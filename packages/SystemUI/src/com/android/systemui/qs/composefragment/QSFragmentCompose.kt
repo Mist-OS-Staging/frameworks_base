@@ -67,6 +67,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -182,8 +183,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import lineageos.providers.LineageSettings
+import com.android.systemui.qs.composefragment.ui.axFromQuickQuickSettingsToQuickSettings
+import com.android.systemui.qs.composefragment.ui.toAxEditMode
+import com.android.systemui.qs.panels.ui.compose.AxQsControlPreview
+import com.android.systemui.qs.panels.ui.compose.AxQsMixedGrid
+import com.android.systemui.qs.panels.ui.edit.AxQsEditUi
+import com.android.systemui.qs.panels.ui.viewmodel.AxMediaViewModel
+import com.android.systemui.qs.panels.ui.viewmodel.AxQsViewModel
+import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
+import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 
 val IosControlPanelElementKey = com.android.compose.animation.scene.ElementKey("IosControlPanel")
+
+val LocalBlurEnabled = staticCompositionLocalOf { false }
 
 @SuppressLint("ValidFragment")
 class QSFragmentCompose
@@ -194,7 +206,13 @@ constructor(
     private val dumpManager: DumpManager,
     @Background private val backgroundDispatcher: CoroutineDispatcher,
     @ShadeDisplayAware private val configurationController: ConfigurationController,
+    private val axQsViewModel: AxQsViewModel,
+    private val axMediaViewModel: AxMediaViewModel,
+    private val toolbarViewModelFactory: ToolbarViewModel.Factory,
+    private val windowRootViewBlurInteractor: WindowRootViewBlurInteractor,
 ) : LifecycleFragment(), QS, Dumpable {
+
+    private val toolbarViewModel: ToolbarViewModel by lazy { toolbarViewModelFactory.create() }
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
     private val collapsedMediaVisibilityChangedListener =
@@ -227,6 +245,7 @@ constructor(
 
         setListenerCollections()
         lifecycleScope.launch { viewModel.activate() }
+        lifecycleScope.launch { toolbarViewModel.activate() }
     }
 
     override fun onCreateView(
@@ -285,6 +304,9 @@ constructor(
 
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
+        val isBlurCurrentlySupported by
+            windowRootViewBlurInteractor.isBlurCurrentlySupported.collectAsStateWithLifecycle()
+        val blurEnabled = notificationShadeBlur() && isBlurCurrentlySupported
         PlatformTheme(isDarkTheme = if (notificationShadeBlur()) isSystemInDarkTheme() else true) {
             ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
                 Box(
@@ -314,7 +336,11 @@ constructor(
                             // by the composables.
                             .thenIf(viewModel.showingMirror) { Modifier.gesturesDisabled() }
                 ) {
+                    CompositionLocalProvider(
+                        LocalBlurEnabled provides blurEnabled,
+                    ) {
                     CollapsableQuickSettingsSTL()
+                   }
                 }
             }
         }
@@ -339,11 +365,11 @@ constructor(
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            quickQuickSettingsToQuickSettings(viewModel::animateTilesExpansion::get)
+                            axFromQuickQuickSettingsToQuickSettings()
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
-                            toEditMode()
+                            toAxEditMode()
                         }
                     },
                 onTransitionStart = { transition ->
@@ -827,11 +853,16 @@ constructor(
                             }
                         }
 
-                            QuickQuickSettingsLayout(
-                                brightness = BrightnessSlider,
-                                tiles = Tiles,
-                                media = Media,
-                                mediaInRow = viewModel.qqsMediaInRow,
+                            AxQsMixedGrid(
+                                viewModel = viewModel,
+                                toolbarViewModel = toolbarViewModel,
+                                axQsViewModel = axQsViewModel,
+                                mediaViewModel = axMediaViewModel,
+                                qqs = true,
+                                listening = isListening,
+                                brightnessSliderViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
+                                scrollState = scrollState,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -994,16 +1025,16 @@ constructor(
                                         end = qsHorizontalMargin(),
                                     )
                         ) {
-                            QuickSettingsLayout(
-                                brightness =
-                                    if (viewModel.isBrightnessSliderVisible) {
-                                        BrightnessSlider
-                                    } else {
-                                        {}
-                                    },
-                                tiles = TileGrid,
-                                media = Media,
-                                mediaInRow = viewModel.qsMediaInRow,
+                            AxQsMixedGrid(
+                                viewModel = viewModel,
+                                toolbarViewModel = toolbarViewModel,
+                                axQsViewModel = axQsViewModel,
+                                mediaViewModel = axMediaViewModel,
+                                qqs = false,
+                                listening = isListening,
+                                brightnessSliderViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
+                                scrollState = scrollState,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -1059,15 +1090,31 @@ constructor(
 
     @Composable
     private fun EditModeElement(modifier: Modifier = Modifier) {
-        // No need for top padding, the Scaffold inside takes care of the correct insets
-        val horizontalPadding = QuickSettingsShade.Dimensions.HorizontalPadding
-        EditMode(
-            viewModel = viewModel.containerViewModel.editModeViewModel,
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = { horizontalPadding.roundToPx() })
-                    .padding(top = { viewModel.qqsHeaderHeight }),
+        val context = LocalContext.current
+        AxQsEditUi(
+            editModeViewModel = viewModel.containerViewModel.editModeViewModel,
+            axQsViewModel = axQsViewModel,
+            controlPreview = { control, span, columns, style ->
+                AxQsControlPreview(
+                    control = control,
+                    span = span,
+                    maxColumns = columns,
+                    verticalSliderStyle = style,
+                    brightnessViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
+                    mediaViewModel = axMediaViewModel,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            },
+            onOpenPanelSettings = {
+                try {
+                    val intent = android.content.Intent("android.settings.MIST_SETTINGS")
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                } catch (_: Exception) {}
+            },
+            animateItemBounds = true,
+            splitShade = viewModel.isInSplitShade,
+            modifier = modifier.fillMaxWidth(),
         )
     }
 
