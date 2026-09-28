@@ -1206,9 +1206,12 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             // be larger than 0 because of the timing, leading to flickers.
             return 0.0f;
         }
+        final float heightDiff = mMaxExpansionHeight - mMinExpansionHeight;
+        if (heightDiff <= 0.001f) {
+            return 0.0f;
+        }
         return Math.min(
-                1f, (mExpansionHeight - mMinExpansionHeight) / (mMaxExpansionHeight
-                        - mMinExpansionHeight));
+               1f, (mExpansionHeight - mMinExpansionHeight) / heightDiff);
     }
 
     void updateMinHeight() {
@@ -1775,6 +1778,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (mTwoFingerExpandPossible && isOpenQsEvent(event) && isInStatusBar) {
             mMetricsLogger.count(COUNTER_PANEL_OPEN_QS, 1);
             setExpandImmediate(true);
+            mNotificationStackScrollLayoutController.setQuickQsHidden(true);
             mNotificationStackScrollLayoutController.setShouldShowShelfOnly(!mSplitShadeEnabled);
             if (mExpansionHeightSetToMaxListener != null) {
                 mExpansionHeightSetToMaxListener.onExpansionHeightSetToMax(false);

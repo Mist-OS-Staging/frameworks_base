@@ -50,7 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.android.app.tracing.coroutines.launchTraced as launch
-import com.android.systemui.brightness.shared.model.GammaBrightness
+import com.android.systemui.brightness.domain.model.GammaBrightness
 import com.android.systemui.brightness.ui.compose.ContainerColors
 import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
@@ -194,7 +194,7 @@ fun AxBrightnessSliderContainer(
             autoMode = viewModel.autoMode,
             onIconClick = { viewModel.onIconClick() },
             showToast = {
-                viewModel.showToast(context, R.string.quick_settings_brightness_unable_adjust_msg)
+                viewModel.showToast(context, com.android.internal.R.string.brightness_unable_adjust_msg)
             },
             showAutoBrightnessButton = showAutoBrightnessButton,
             hapticsViewModelFactory = viewModel.hapticsViewModelFactory,

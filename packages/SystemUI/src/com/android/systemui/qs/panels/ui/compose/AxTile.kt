@@ -86,7 +86,7 @@ import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.panels.shared.model.AxQsSpan
 import com.android.systemui.qs.panels.ui.compose.BounceableInfo
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveCornerRadius
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveTileCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelMoreDetails
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelSettings
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.SmallTileContent
@@ -137,7 +137,7 @@ fun ContentScope.AxTile(
             produceState(tile.currentState.toUiState(res), tile, res) {
                 tile.state.collect { value = it.toUiState(res) }
             }
-        val isClickable = uiState.state != STATE_UNAVAILABLE
+        val isClickable = uiState.visualState != STATE_UNAVAILABLE
 
         val icon by
             produceState(tile.currentState.toIconProvider(), tile) {
@@ -147,18 +147,18 @@ fun ContentScope.AxTile(
         val colors = AxTileColorsDefaults.getColorForState(uiState, compact)
         val hapticsViewModel: TileHapticsViewModel? =
             rememberViewModel(traceName = "TileHapticsViewModel") {
-                tileHapticsViewModelFactory?.create(tile.tile)
+                tileHapticsViewModelFactory?.create(tile)
             }
 
         val defaultTileShape =
             if (span.columns > 1 || span.rows > 1) {
                 RoundedCornerShape(AxQsControlCornerRadius)
             } else {
-                AxTileColorsDefaults.animateTileShapeAsState(uiState.state).value
+                AxTileColorsDefaults.animateTileShapeAsState(uiState.visualState).value
             }
         val tileShape = tileShapeOverride ?: defaultTileShape
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
-        val isDualTarget = uiState.handlesSecondaryClick
+        val isDualTarget = uiState.handlesToggleClick
 
         val surfaceRevealModifier: Modifier
         val contentRevealModifier: Modifier
@@ -207,7 +207,7 @@ fun ContentScope.AxTile(
                         tile.mainClick(expandable)
                     }
                 }
-                .takeIf { !useLongClickToSettings || uiState.handlesLongClick }
+                .takeIf { !useLongClickToSettings || uiState.handlesSettingsClick }
 
             val bounceContainer = uiState.isToggleable && (compact || !isDualTarget)
             val contentBounceable =
@@ -235,10 +235,8 @@ fun ContentScope.AxTile(
                     )
 
                     coroutineScope.launch {
-                        if (bounceContainer) {
-                            currentBounceableInfo?.bounceable?.animateContainerBounce()
-                        } else {
-                            contentBounceable.animateContentBounce(compact)
+                        if (!bounceContainer) {
+                            currentBounceableInfo?.bounceable?.animateContentBounce(compact)
                         }
                     }
                     if (uiState.isToggleable && compact) {
@@ -271,7 +269,7 @@ fun ContentScope.AxTile(
                                     },
                             )
                         } else {
-                            val iconShape by AxTileColorsDefaults.animateIconShapeAsState(uiState.state)
+                            val iconShape by AxTileColorsDefaults.animateIconShapeAsState(uiState.visualState)
                             val secondaryClick: (() -> Unit)? =
                                 {
                                     hapticsViewModel?.setTileInteractionState(
@@ -287,7 +285,7 @@ fun ContentScope.AxTile(
                                 sideDrawable = uiState.sideDrawable,
                                 colors = colors,
                                 iconShape = iconShape,
-                                tileState = uiState.state,
+                                tileState = uiState.visualState,
                                 toggleClick = secondaryClick,
                                 onLongClick = longClick,
                                 accessibilityUiState = uiState.accessibilityUiState,
@@ -469,7 +467,7 @@ object AxTileColorsDefaults {
     @Composable
     @ReadOnlyComposable
     fun getColorForState(uiState: TileUiState, iconOnly: Boolean): TileColors {
-        return when (uiState.state) {
+        return when (uiState.visualState) {
             STATE_ACTIVE -> activeTileColors()
             STATE_INACTIVE -> inactiveTileColors()
             else -> unavailableTileColors()
@@ -506,7 +504,7 @@ object AxTileColorsDefaults {
                     if (state == STATE_ACTIVE) {
                         activeCornerRadius
                     } else {
-                        InactiveCornerRadius
+                        InactiveTileCornerRadius
                     },
                 label = label,
             )

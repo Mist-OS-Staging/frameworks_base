@@ -368,7 +368,7 @@ private fun VerticalSliderStylePager(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(CommonTileDefaults.TileStartPadding),
+        verticalArrangement = Arrangement.spacedBy(CommonTileDefaults.StartPadding),
     ) {
         Box(Modifier.fillMaxWidth().height(previewHeight)) {
             HorizontalPager(
@@ -457,14 +457,14 @@ private fun AxAddItemCell(
             ?: AxQsVerticalSliderStyle.M3_EXPRESSIVE
     val previewShape =
         when (item) {
-            is AxAddItem.Tile -> RoundedCornerShape(CommonTileDefaults.InactiveCornerRadius)
+            is AxAddItem.Tile -> RoundedCornerShape(CommonTileDefaults.InactiveTileCornerRadius)
             is AxAddItem.Control ->
                 axQsControlShape(item.control, span, sliderStyle)
         }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement =
-            Arrangement.spacedBy(CommonTileDefaults.TileStartPadding, Alignment.Top),
+            Arrangement.spacedBy(CommonTileDefaults.StartPadding, Alignment.Top),
         modifier =
             modifier
                 .graphicsLayer { alpha = if (item.isAdded || !canAdd) .38f else 1f }
@@ -589,7 +589,7 @@ fun AxQsEditTile(
         when {
             circleCells && span == AxQsSpan.TileDefault -> CircleShape
             span.columns > 1 || span.rows > 1 -> RoundedCornerShape(AxQsControlCornerRadius)
-            else -> RoundedCornerShape(CommonTileDefaults.InactiveCornerRadius)
+            else -> RoundedCornerShape(CommonTileDefaults.InactiveTileCornerRadius)
         }
     BoxWithConstraints(
         modifier = modifier.clip(shape).background(colors.background),

@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
@@ -72,7 +74,6 @@ import com.android.systemui.common.ui.compose.PagerDots
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsButtonViewModel
-import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsForegroundServicesButtonViewModel
 import com.android.systemui.qs.panels.shared.model.AxQsGridItem
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
 import com.android.systemui.res.R
@@ -103,8 +104,10 @@ internal fun <T> ContentScope.AxQQS(
     controlContent: @Composable (AxQsGridItem<T>) -> Unit,
     tileContent: @Composable (AxQsGridItem<T>) -> Unit,
 ) {
+    val statusBarHeight =
+        with(LocalDensity.current) { shadeHeaderViewModel.statusBarHeightPx.toDp() }
     Column(
-        modifier = modifier.fillMaxWidth().heightIn(ShadeHeader.Dimensions.StatusBarHeight),
+        modifier = modifier.fillMaxWidth().heightIn(min = statusBarHeight),
         verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         AxQsDateHeader(
@@ -182,7 +185,10 @@ internal fun <T> ContentScope.AxQS(
     tileLabel: @Composable (AxQsGridItem<T>) -> Unit,
 ) {
     val pagerState = rememberAxQsTilePagerState(tileItems, tileColumns, tileRows)
-    Column(modifier = modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(spacing)) {
+        Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+    ) {
         AxQsDateHeader(
             toolbarViewModel = toolbarViewModel,
             shadeHeaderViewModel = shadeHeaderViewModel,
@@ -244,7 +250,7 @@ private fun <T> rememberAxQsTilePagerState(
 ): PagerState = rememberPagerState { axQsTileGridPageCount(items.size, columns, rows) }
 
 @Composable
-private fun ContentScope.AxQsDateHeader(
+internal fun AxQsDateHeader(
     toolbarViewModel: ToolbarViewModel,
     shadeHeaderViewModel: ShadeHeaderViewModel,
     showEdit: Boolean,
@@ -270,7 +276,7 @@ private fun ContentScope.AxQsDateHeader(
 }
 
 @Composable
-internal fun ContentScope.AxQsHeaderActions(
+internal fun AxQsHeaderActions(
     viewModel: ToolbarViewModel,
     isFullyVisible: () -> Boolean,
     editButtonProgress: () -> Float,
@@ -382,13 +388,6 @@ private fun AxFooterOverflowMenu(viewModel: ToolbarViewModel) {
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
         ) {
-            viewModel.foregroundServicesViewModel?.let { model ->
-                AxForegroundServicesMenuItem(model) {
-                    val source = expandable ?: return@AxForegroundServicesMenuItem
-                    expanded = false
-                    model.onClick(context, source)
-                }
-            }
             AxPowerMenuItem(viewModel.powerButtonViewModel) {
                 val source = expandable ?: return@AxPowerMenuItem
                 expanded = false
@@ -396,36 +395,6 @@ private fun AxFooterOverflowMenu(viewModel: ToolbarViewModel) {
             }
         }
     }
-}
-
-@Composable
-private fun AxForegroundServicesMenuItem(
-    model: FooterActionsForegroundServicesButtonViewModel,
-    onClick: () -> Unit,
-) {
-    DropdownMenuItem(
-        text = {
-            Text(
-                text = "Running services",
-                style = MaterialTheme.typography.labelLarge,
-            )
-        },
-        leadingIcon = {
-            SystemUiIcon(
-                icon = model.icon,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp),
-            )
-        },
-        trailingIcon = {
-            Text(
-                text = model.foregroundServicesCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-            )
-        },
-        onClick = onClick,
-        modifier = Modifier.heightIn(min = 52.dp),
-    )
 }
 
 @Composable

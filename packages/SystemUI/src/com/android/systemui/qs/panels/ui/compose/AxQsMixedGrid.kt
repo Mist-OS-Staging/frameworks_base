@@ -525,4 +525,3 @@ private fun AxTileGridLabel(tile: TileViewModel) {
 }
 
 private const val QS_ENTRANCE_START = 0.5f
-private val AX_TILE_LABEL_HEIGHT = 24.dp

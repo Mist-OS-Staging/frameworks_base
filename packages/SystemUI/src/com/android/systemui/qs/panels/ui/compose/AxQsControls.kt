@@ -27,10 +27,12 @@ import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -50,6 +52,13 @@ import com.android.systemui.res.R
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AudioStreamSliderViewModel
 
 @Composable
+private fun axString(resName: String, fallback: String): String {
+    val context = LocalContext.current
+    val id = remember(resName) { context.resources.getIdentifier(resName, "string", context.packageName) }
+    return if (id != 0) stringResource(id) else fallback
+}
+
+@Composable
 internal fun AxQsBrightnessButton(
     viewModel: BrightnessSliderViewModel,
     interactive: Boolean = true,
@@ -57,7 +66,7 @@ internal fun AxQsBrightnessButton(
 ) {
     val active = viewModel.autoMode
     AxQsButtonControl(
-        description = stringResource(R.string.ax_qs_auto_brightness),
+        description = axString("ax_qs_auto_brightness", "Auto brightness"),
         active = active,
         interactive = interactive,
         onClick = viewModel::onIconClick,
@@ -88,7 +97,7 @@ internal fun AxQsVolumeMuteButton(
     val state by viewModel.slider.collectAsStateWithLifecycle()
     val muted = state.value <= state.valueRange.start
     AxQsButtonControl(
-        description = stringResource(R.string.ax_qs_volume_mute),
+        description = axString("ax_qs_volume_mute", "Mute volume"),
         active = muted,
         interactive = interactive && state.isMutable,
         onClick = { viewModel.toggleMuted(state) },

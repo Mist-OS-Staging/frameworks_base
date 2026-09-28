@@ -244,6 +244,9 @@ constructor(
     }
 
     fun columnRange(layout: AxQsGridLayout): IntRange {
+        if (layout.section == AxQsGridSection.CONTROLS) {
+            return 2..4
+        }
         val configuredRange = layout.columnRange(defaultColumns(layout))
         val safeMax = maxColumnsForWidth(layout)
         val last = minOf(configuredRange.last, safeMax).coerceAtLeast(configuredRange.first)
@@ -271,27 +274,27 @@ constructor(
         defaultIds: List<String>,
     ): List<String> {
         val available = availableIds.toSet()
-        val saved = configuredSectionOrder(layout, section)
-        if (saved != null) return saved.filter(available::contains)
-        val legacy = configuredOrder(layout)
-        if (legacy != null) {
-            return legacy.filter { id ->
-                id in available && sectionForLegacyId(id, layout) == section
-            }
+        val saved = configuredSectionOrder(layout, section)?.filter(available::contains)
+        if (!saved.isNullOrEmpty()) return saved
+        val legacy = configuredOrder(layout)?.filter { id ->
+            id in available && sectionForLegacyId(id, layout) == section
         }
+        if (!legacy.isNullOrEmpty()) return legacy
         val controlDefaults = defaultControlIds(available)
         return if (section == AxQsGridSection.CONTROLS) {
             controlDefaults
         } else {
-            (defaultTileIds + defaultIds).distinct().filter {
+            (defaultIds + defaultTileIds).distinct().filter {
                 it in available && it !in controlDefaults
             }
         }
     }
 
     fun order(layout: AxQsLayout, section: AxQsGridSection): List<String>? {
-        return configuredSectionOrder(layout, section)
-            ?: configuredOrder(layout)?.filter { sectionForLegacyId(it, layout) == section }
+        return configuredSectionOrder(layout, section)?.takeIf { it.isNotEmpty() }
+            ?: configuredOrder(layout)
+                ?.filter { sectionForLegacyId(it, layout) == section }
+                ?.takeIf { it.isNotEmpty() }
     }
 
     fun isInGrid(id: String, layout: AxQsLayout, section: AxQsGridSection): Boolean {
@@ -436,7 +439,13 @@ constructor(
     override suspend fun onActivated(): Nothing = hydrator.activate()
 
     fun defaultColumns(layout: AxQsGridLayout): Int =
-        if (layout.isSplitShade) splitShadeDefaultColumns else normalDefaultColumns
+        if (layout.section == AxQsGridSection.CONTROLS) {
+            DEFAULT_CONTROL_COLUMNS
+        } else if (layout.isSplitShade) {
+            splitShadeDefaultColumns
+        } else {
+            normalDefaultColumns
+        }
 
     fun defaultRows(layout: AxQsGridLayout): Int =
         if (layout.layout == AxQsLayout.QQS) DEFAULT_QQS_TILE_ROWS else DEFAULT_TILE_GRID_ROWS
@@ -496,6 +505,7 @@ constructor(
         const val GRID_SPACING_DP = 16f
         const val MIN_TILE_GRID_ROWS = 1
         const val MAX_TILE_GRID_ROWS = 3
+        const val DEFAULT_CONTROL_COLUMNS = 4
         const val DEFAULT_QQS_TILE_ROWS = 2
         const val DEFAULT_TILE_GRID_ROWS = 3
         val DEFAULT_NETWORK_IDS = listOf("wifi", "internet")

@@ -95,7 +95,7 @@ import com.android.compose.PlatformSliderDefaults
 import com.android.compose.gesture.gesturesDisabled
 import com.android.compose.modifiers.sliderPercentage
 import com.android.compose.ui.graphics.drawInOverlay
-import com.android.systemui.brightness.shared.model.GammaBrightness
+import com.android.systemui.brightness.domain.model.GammaBrightness
 import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.ui.compose.Icon as SystemUiIcon
@@ -108,7 +108,7 @@ import com.android.systemui.qs.panels.shared.model.AxQsControl
 import com.android.systemui.qs.panels.shared.model.AxQsSpan
 import com.android.systemui.qs.panels.shared.model.AxQsVerticalSliderStyle
 import com.android.systemui.res.R
-import com.android.systemui.utils.PolicyRestriction
+import com.android.systemui.util.policy.PolicyRestriction
 import com.android.systemui.volume.dialog.sliders.ui.compose.SliderTrack
 import com.android.systemui.volume.haptics.ui.VolumeHapticsConfigsProvider
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AudioStreamSliderViewModel
@@ -297,8 +297,6 @@ private fun AxQsSlider(
                         disabledLabelColor =
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                     ),
-                sliderHeight = platformSliderHeight,
-                showEndDot = false,
                 draggingCornersRadius =
                     PlatformSliderDefaults.DefaultPlatformSliderDraggingCornerRadius * sliderScale,
                 icon = { icon(Modifier.size(iconSize).rotate(90f)) },
@@ -574,7 +572,7 @@ private fun AxBrightnessSlider(
     LaunchedEffect(interactionSource, overriddenByApp) {
         interactionSource.interactions.collect { interaction ->
             if (interaction is DragInteraction.Start && overriddenByApp) {
-                viewModel.showToast(context, R.string.quick_settings_brightness_unable_adjust_msg)
+                viewModel.showToast(context, com.android.internal.R.string.brightness_unable_adjust_msg)
             }
         }
     }

@@ -19,6 +19,7 @@ package com.android.systemui.qs.composefragment.ui
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.android.compose.animation.scene.ContentKey
+import com.android.compose.animation.scene.ElementKey
 import com.android.compose.animation.scene.SceneTransitionLayoutState
 import com.android.compose.animation.scene.TransitionBuilder
 import com.android.compose.animation.scene.content.state.TransitionState
@@ -56,9 +57,12 @@ fun TransitionBuilder.toAxEditMode() {
     disableAxQsSharedElements()
 }
 
+private val VolumeSlider = ElementKey("VolumeSlider")
+
 private fun TransitionBuilder.disableAxQsSharedElements() {
     sharedElement(Elements.TileElementMatcher, enabled = false)
     sharedElement(Elements.BrightnessSlider, enabled = false)
+    sharedElement(VolumeSlider, enabled = false)
 }
 
 fun SceneTransitionLayoutState.shouldComposeLiveAxQs(): Boolean {
@@ -128,6 +132,6 @@ private fun ContentKey.isAxQsScene(): Boolean {
 private const val AX_QS_ENTRANCE_ALPHA_START = 0.89f
 private const val AX_QS_ENTRANCE_TRANSLATION_PX = 300f
 private const val AX_QS_ENTRANCE_HIDDEN_TRANSLATION_PX = -5000f
-private const val AX_QS_SCENE_FADE_START = 0.5f
+private const val AX_QS_SCENE_FADE_START = 0.50f
 private const val AX_QS_SCENE_TRANSLATION_PX = 300f
 private const val AX_QS_SCENE_HIDDEN_TRANSLATION_PX = -5000f

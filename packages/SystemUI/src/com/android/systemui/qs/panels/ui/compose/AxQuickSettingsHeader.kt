@@ -18,30 +18,45 @@
 
 package com.android.systemui.qs.panels.ui.compose
 
+import android.content.Intent
 import android.content.res.Configuration
+import android.database.ContentObserver
 import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
+import android.provider.Settings
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.ColorInt
+import androidx.annotation.LayoutRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +65,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -121,6 +137,7 @@ fun AxQuickSettingsHeader(
                     foregroundColor = foregroundColor.toArgb(),
                     backgroundColor = Color.Transparent.toArgb(),
                 )
+                val context = LocalContext.current
                 AxBatteryInfo(
                     viewModel = viewModel,
                     showIcon = true,
@@ -128,7 +145,15 @@ fun AxQuickSettingsHeader(
                     textColor = foregroundColor,
                     iconTint = foregroundColor,
                     iconBackgroundColor = Color.Transparent,
-                    onClick = viewModel::onBatteryClicked,
+                    onClick = {
+                        try {
+                            val intent =
+                                Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    },
                 )
                 if (viewModel.isPrivacyChipVisible) {
                     AxPrivacyChip(
@@ -139,14 +164,16 @@ fun AxQuickSettingsHeader(
             }
         }
         if (landscape) {
+            val statusBarHeightDp = with(LocalDensity.current) { viewModel.statusBarHeightPx.toDp() }
             Box(
-                Modifier.fillMaxWidth().height(AxQuickSettingsLayoutDefaults.LandscapeHeaderHeight)
+                Modifier.fillMaxWidth().height(statusBarHeightDp)
             ) {
                 Box(modifier = Modifier.align(Alignment.TopStart)) { startContent() }
                 Box(modifier = Modifier.align(Alignment.TopEnd)) { endContent() }
             }
         } else {
             AxCutoutAwareShadeHeader(
+                statusBarHeightPx = viewModel.statusBarHeightPx,
                 modifier = Modifier.fillMaxWidth(),
                 startContent = startContent,
                 endContent = endContent,
@@ -166,6 +193,7 @@ private fun AxStatusIcons(
     if (SystemStatusIconsInCompose.isEnabled) {
         SystemStatusIcons(
             viewModelFactory = viewModel.systemStatusIconsViewModelFactory,
+            systemStatusIconBlocklistInteractor = viewModel.systemStatusIconsBlockListInteractor,
             tint = Color(foregroundColor),
             modifier = modifier,
         )
@@ -177,10 +205,9 @@ private fun AxStatusIcons(
             remember(statusIconContext, iconManager) {
                 statusIconContext.movableContent(iconManager)
             }
-        LaunchedEffect(viewModel.configChangeToken) {
-            if (viewModel.configChangeToken > 0) {
-                viewModel.statusBarIconController.refreshIconGroup(iconManager)
-            }
+        val configuration = LocalConfiguration.current
+        LaunchedEffect(configuration) {
+            viewModel.statusBarIconController.refreshIconGroup(iconManager)
         }
         SystemStatusIconsLegacy(
             iconContainer = iconContainer,
@@ -220,17 +247,90 @@ private fun AxPrivacyChip(
 
 @Composable
 fun AxQuickSettingsClock(viewModel: ShadeHeaderViewModel, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var clockStyle by remember {
+        mutableIntStateOf(
+            Settings.System.getIntForUser(
+                context.contentResolver,
+                "qs_header_clock_style",
+                0,
+                UserHandle.USER_CURRENT,
+            )
+        )
+    }
+
+    DisposableEffect(context) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                clockStyle = Settings.System.getIntForUser(
+                    context.contentResolver,
+                    "qs_header_clock_style",
+                    0,
+                    UserHandle.USER_CURRENT,
+                )
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("qs_header_clock_style"),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        onDispose {
+            context.contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
     val textColor = MaterialTheme.colorScheme.onSurface
-    AxHeaderClock(onClick = viewModel::onClockClicked, textColor = textColor, modifier = modifier)
+    when (clockStyle) {
+        0 -> AxHeaderClock(onClick = viewModel::onClockClicked, textColor = textColor, modifier = modifier)
+        1 -> AxCustomClockView(layoutRes = R.layout.qs_header_clock_chip, onClick = viewModel::onClockClicked, modifier = modifier)
+        2 -> AxCustomClockView(layoutRes = R.layout.qs_header_clock_oos, onClick = viewModel::onClockClicked, modifier = modifier)
+        3 -> AxCustomClockView(layoutRes = R.layout.qs_header_clock_analog, onClick = viewModel::onClockClicked, modifier = modifier)
+        else -> AxCustomClockView(layoutRes = R.layout.qs_header_clock_simple, onClick = viewModel::onClockClicked, modifier = modifier)
+    }
+}
+
+@Composable
+private fun AxCustomClockView(
+    @LayoutRes layoutRes: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    key(layoutRes) {
+        AndroidView(
+            factory = { context ->
+                val themedContext =
+                    ContextThemeWrapper(context, R.style.Theme_SystemUI_QuickSettings_Header)
+                val view = LayoutInflater.from(themedContext).inflate(layoutRes, null, false)
+                view.setOnClickListener { onClick() }
+                view
+            },
+            modifier = modifier.wrapContentWidth(unbounded = true).clickable(onClick = onClick),
+        )
+    }
 }
 
 @Composable
 fun AxQuickSettingsDate(viewModel: ShadeHeaderViewModel, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     AxHeaderDate(
         longerDateText = viewModel.longerDateText,
         shorterDateText = viewModel.shorterDateText,
         textColor = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.clickable(onClick = viewModel::onDateClicked),
+        modifier =
+            modifier.clickable {
+                try {
+                    val intent =
+                        Intent.makeMainSelectorActivity(
+                            Intent.ACTION_MAIN,
+                            Intent.CATEGORY_APP_CALENDAR,
+                        ).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                    context.startActivity(intent)
+                } catch (_: Exception) {}
+            },
     )
 }
 
@@ -345,17 +445,17 @@ object AxQuickSettingsLayoutDefaults {
     val LandscapeSplitGridSpacing = AxQsLayoutPadding.LANDSCAPE_SPLIT_GRID_SPACING_DP.dp
     val LandscapeHeaderContentSpacing = 8.dp
     val LandscapeHeaderHeight: Dp
-        @Composable get() = ShadeHeader.Dimensions.StatusBarHeight
+        @Composable get() = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 }
 
 @Composable
 private fun AxCutoutAwareShadeHeader(
+    statusBarHeightPx: Int,
     modifier: Modifier = Modifier,
     startContent: @Composable () -> Unit,
     endContent: @Composable () -> Unit,
 ) {
     val cutoutProvider = LocalDisplayCutout.current
-    val statusBarHeight = ShadeHeader.Dimensions.StatusBarHeight
     Layout(
         modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root),
         contents = listOf(startContent, endContent),
@@ -373,7 +473,7 @@ private fun AxCutoutAwareShadeHeader(
         check(measurables[1].size == 1)
 
         val screenWidth = constraints.maxWidth
-        val height = max(cutoutHeight + (cutoutTop * 2), statusBarHeight.roundToPx())
+        val height = max(cutoutHeight + (cutoutTop * 2), statusBarHeightPx)
         val sideWidth = (screenWidth - cutoutWidth) / 2
         val contentMaxWidth =
             when (cutoutLocation) {
@@ -459,7 +559,7 @@ private fun AxBatteryInfo(
         AxBatteryIconLegacy(
             createBatteryMeterViewController = viewModel.createBatteryMeterViewController,
             useExpandedFormat = useExpandedFormat,
-            modifier = batteryModifier.sysuiResTag(ShadeHeader.TestTags.BatteryTestTagLegacy),
+            modifier = batteryModifier.sysuiResTag(ShadeHeader.TestTags.BatteryTestTag),
             isHighlighted = isHighlighted,
             foregroundColor = iconTint,
             backgroundColor = iconBackgroundColor,

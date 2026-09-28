@@ -196,6 +196,9 @@ enum class AxQsControl(
     val isSlider: Boolean
         get() = isVerticalSlider || isHorizontalSlider
 
+    val showInEditGrid: Boolean
+        get() = true
+
     val canUseTileGrid: Boolean
         get() =
             defaultSpan == AxQsSpan.TileDefault &&

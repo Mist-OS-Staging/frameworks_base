@@ -117,7 +117,7 @@ fun AxLargeTileContent(
     modifier: Modifier = Modifier,
     isVisible: () -> Boolean = { true },
     accessibilityUiState: AccessibilityUiState? = null,
-    iconShape: RoundedCornerShape = RoundedCornerShape(CommonTileDefaults.InactiveCornerRadius),
+    iconShape: RoundedCornerShape = RoundedCornerShape(CommonTileDefaults.InactiveTileCornerRadius),
     textScale: () -> Float = { 1f },
     toggleClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,

@@ -79,6 +79,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -177,6 +178,7 @@ fun AxQsEditUi(
     onOpenPanelSettings: () -> Unit,
     animateItemBounds: Boolean,
     splitShade: Boolean,
+    onResetTiles: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val allTiles by editModeViewModel.tiles.collectAsStateWithLifecycle(initialValue = null)
@@ -199,7 +201,7 @@ fun AxQsEditUi(
             text = { Text("Reset all Quick Settings tiles to default layout?") },
             confirmButton = {
                 TextButton(onClick = {
-                    editModeViewModel.resetTiles()
+                    onResetTiles()
                     axQsViewModel.resetLayout()
                     resetEpoch++
                     showResetDialog = false
@@ -830,6 +832,7 @@ private fun AxEditableGridSection(
                     )
                     .padding(gridPadding)
         ) {
+            var resizingItemId by remember { mutableStateOf<String?>(null) }
             AxQsGrid(
                 items = items,
                 columns = columns,
@@ -839,7 +842,7 @@ private fun AxEditableGridSection(
                 minimumRows = visibleRows,
                 squareCells = circleCells,
                 animateItemBounds = animateItemBounds,
-                staticItemId = listState.draggedId,
+                staticItemId = listState.draggedId ?: resizingItemId,
                 onItemBounds = { id, bounds -> listState.updateItemBounds(id, section, bounds) },
                 onCells =
                     if (section == AxQsGridSection.CONTROLS) {
@@ -972,8 +975,14 @@ private fun AxEditableGridSection(
                                 }
                             },
                             canResize = canResize,
-                            onResizeStarted = listState::beginResize,
-                            onResizeStopped = listState::endResize,
+                            onResizeStarted = {
+                                resizingItemId = item.id
+                                listState.beginResize()
+                            },
+                            onResizeStopped = {
+                                resizingItemId = null
+                                listState.endResize()
+                            },
                             onResize = resizeItem,
                             onResizeFinished = finishResize,
                         )
@@ -985,16 +994,17 @@ private fun AxEditableGridSection(
                 val resizeDescription =
                     stringResource(R.string.accessibility_qs_edit_toggle_tile_size_action)
 
+                val currentSelectedId by rememberUpdatedState(selectedId)
                 Box(
                     modifier =
                         Modifier.fillMaxSize()
-                            .pointerInput(selectedId, item.id) {
+                            .pointerInput(item.id) {
                                 awaitEachGesture {
                                     awaitFirstDown(
                                         requireUnconsumed = false,
                                         pass = PointerEventPass.Initial,
                                     )
-                                    if (selectedId != null && selectedId != item.id) {
+                                    if (currentSelectedId != null && currentSelectedId != item.id) {
                                         onSelected(null)
                                     }
                                 }
@@ -1245,7 +1255,7 @@ private fun buildEditItems(
     currentTiles.forEach {
         values[it.tileSpec.spec] = AxEditGridValue.Tile(it, AxQsGridSection.TILES)
     }
-    AxQsControl.entries.forEach { control ->
+    AxQsControl.entries.filter { it.showInEditGrid }.forEach { control ->
         values[control.id] = AxEditGridValue.Control(control, AxQsGridSection.CONTROLS)
     }
     val controlIds =

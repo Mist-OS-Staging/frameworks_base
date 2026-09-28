@@ -19,6 +19,7 @@ package com.android.systemui.qs.panels.data.repository
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.qs.flags.QsSplitInternetTile
 import com.android.systemui.qs.panels.shared.model.AxQsControl
 import com.android.systemui.qs.panels.shared.model.AxQsGridLayout
 import com.android.systemui.qs.panels.shared.model.AxQsGridPosition
@@ -335,12 +336,14 @@ constructor(
     }
 
     private fun parseOrder(value: String?): List<String>? {
+        if (value.isNullOrBlank()) return null
         return value
-            ?.split(',')
-            ?.map(String::trim)
-            ?.filter(String::isNotEmpty)
-            ?.map(::normalizeControlId)
-            ?.distinct()
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map(::normalizeControlId)
+            .distinct()
+            .takeIf { it.isNotEmpty() }
     }
 
     private fun parseSpans(value: String?): Map<String, AxQsSpan> {
@@ -370,6 +373,7 @@ constructor(
             LEGACY_BRIGHTNESS_VERTICAL_ID -> AxQsControl.BRIGHTNESS.id
             LEGACY_VOLUME_VERTICAL_ID -> AxQsControl.VOLUME.id
             LEGACY_RINGER_TILE_ID -> AxQsControl.RINGER.id
+            "internet" -> if (QsSplitInternetTile.isEnabled) "wifi" else "internet"
             else -> id
         }
     }
@@ -508,10 +512,11 @@ constructor(
         const val LEGACY_VOLUME_VERTICAL_ID = "control:volume_vertical"
         const val LEGACY_RINGER_TILE_ID = "sound"
 
+        val DEFAULT_NETWORK_ID = if (QsSplitInternetTile.isEnabled) "wifi" else "internet"
         val DEFAULT_CONTROLS_LIST =
-            listOf("internet", "bt", AxQsControl.MEDIA.id, AxQsControl.BRIGHTNESS.id, AxQsControl.VOLUME.id)
+            listOf(DEFAULT_NETWORK_ID, "bt", AxQsControl.MEDIA.id, AxQsControl.BRIGHTNESS.id, AxQsControl.VOLUME.id)
         val DEFAULT_CONTROLS_STRING = DEFAULT_CONTROLS_LIST.joinToString(",")
-        const val DEFAULT_SPANS_STRING =
-            "bt=2x1,control:brightness=1x2,control:media=2x2,control:volume=1x2,internet=2x1"
+        val DEFAULT_SPANS_STRING =
+            "bt=2x1,control:brightness=1x2,control:media=2x2,control:volume=1x2,$DEFAULT_NETWORK_ID=2x1"
     }
 }

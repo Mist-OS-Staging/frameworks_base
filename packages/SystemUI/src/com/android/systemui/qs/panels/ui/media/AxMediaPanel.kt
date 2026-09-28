@@ -611,7 +611,7 @@ private fun ExpandedMediaContent(
     val title = session?.title?.takeIf { it.isNotBlank() } ?: "No media playing"
     val subtitle = session?.subtitle.orEmpty()
     val showCoreActions =
-        session?.actionButtonLayout != MediaCardActionButtonLayout.SecondaryActionsOnly
+        session?.actionButtonLayout !is MediaCardActionButtonLayout.SecondaryActionsOnly
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val sizing =
@@ -642,7 +642,7 @@ private fun ExpandedMediaContent(
                     tint = colors.primary,
                 )
                 val outputDeviceName =
-                    session?.outputDevice?.name?.takeUnless { it.isBlank() || it == "null" }
+                    session?.outputDevice?.name?.toString()?.takeUnless { it.isBlank() || it == "null" }
                         ?: stringResource(R.string.ax_dynamic_bar_media_output)
                 MediaOutputChip(
                     session = session,

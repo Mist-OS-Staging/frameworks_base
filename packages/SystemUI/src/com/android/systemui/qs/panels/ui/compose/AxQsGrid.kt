@@ -311,7 +311,12 @@ fun <T> AxQsTileGrid(
         val aospTileHeight = AxTileDefaults.TileHeight * LocalTileScale.current
         val tileHeight = if (circleCells) cellWidth else aospTileHeight
         val itemHeight = tileHeight + if (showLabels) AX_TILE_LABEL_HEIGHT else 0.dp
-        val pageHeight = itemHeight * rows + spacing * (rows - 1)
+        val pageHeight =
+            if (items.isEmpty() || rows <= 0) {
+                0.dp
+            } else {
+                itemHeight * rows + spacing * (rows - 1)
+            }
         val pagerPadding = if (pageCount > 1) spacing else 0.dp
         HorizontalPager(
             state = pagerState,

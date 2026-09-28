@@ -194,7 +194,7 @@ internal fun MediaOutputChip(
     modifier: Modifier = Modifier,
 ) {
     val outputDescription =
-        session?.outputDevice?.name?.takeUnless { it.isBlank() || it == "null" }
+        session?.outputDevice?.name?.toString()?.takeUnless { it.isBlank() || it == "null" }
             ?: stringResource(R.string.ax_dynamic_bar_media_output)
     val interactionSource = remember { MutableInteractionSource() }
     val chipHeight = if (compact) 20.dp else 24.dp

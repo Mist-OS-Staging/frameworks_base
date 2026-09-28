@@ -46,11 +46,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredHeightIn
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.verticalScroll
@@ -82,6 +86,7 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -145,11 +150,12 @@ import com.android.systemui.qs.composefragment.SceneKeys.debugName
 import com.android.systemui.qs.composefragment.SceneKeys.toIdleSceneKey
 import com.android.systemui.qs.composefragment.ui.GridAnchor
 import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
+import com.android.systemui.qs.composefragment.ui.axQuickSettingsSceneMotion
 import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
 import com.android.systemui.qs.composefragment.ui.toEditMode
 import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
-import com.android.systemui.qs.footer.ui.compose.FooterActions
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
+import com.android.systemui.qs.panels.ui.compose.AxQuickSettingsHeader
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
@@ -160,6 +166,10 @@ import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExc
 import com.android.systemui.qs.ui.composable.QuickSettingsTheme
 import com.android.systemui.res.R
 import com.android.systemui.shade.ShadeDisplayAware
+import com.android.systemui.shade.ShadeHeaderController
+import com.android.systemui.shade.ui.composable.WithStatusIconContext
+import com.android.systemui.shade.ui.viewmodel.ShadeHeaderViewModel
+import com.android.systemui.statusbar.phone.ui.TintedIconManager
 import com.android.systemui.statusbar.policy.ConfigurationController
 import androidx.compose.ui.zIndex
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
@@ -184,14 +194,23 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import lineageos.providers.LineageSettings
 import com.android.systemui.qs.composefragment.ui.axFromQuickQuickSettingsToQuickSettings
+import com.android.systemui.qs.composefragment.ui.axQsEntrance
+import com.android.systemui.qs.composefragment.ui.editModeTransitionProgress
+import com.android.systemui.qs.composefragment.ui.shouldComposeLiveAxQs
 import com.android.systemui.qs.composefragment.ui.toAxEditMode
 import com.android.systemui.qs.panels.ui.compose.AxQsControlPreview
 import com.android.systemui.qs.panels.ui.compose.AxQsMixedGrid
+import com.android.systemui.qs.panels.domain.interactor.EditTilesResetInteractor
 import com.android.systemui.qs.panels.ui.edit.AxQsEditUi
 import com.android.systemui.qs.panels.ui.viewmodel.AxMediaViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.AxQsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
+import android.media.AudioManager
+import com.android.settingslib.volume.shared.model.AudioStream
+import com.android.systemui.qs.tiles.ringer.LocalRingerSliderViewModel
+import com.android.systemui.qs.tiles.ringer.RingerSliderViewModel
+import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AudioStreamSliderViewModel
 
 val IosControlPanelElementKey = com.android.compose.animation.scene.ElementKey("IosControlPanel")
 
@@ -210,9 +229,22 @@ constructor(
     private val axMediaViewModel: AxMediaViewModel,
     private val toolbarViewModelFactory: ToolbarViewModel.Factory,
     private val windowRootViewBlurInteractor: WindowRootViewBlurInteractor,
+    private val editTilesResetInteractor: EditTilesResetInteractor,
+    private val ringerSliderViewModel: RingerSliderViewModel,
+    private val audioStreamSliderViewModelFactory: AudioStreamSliderViewModel.Factory,
+    private val shadeHeaderController: ShadeHeaderController,
+    private val tintedIconManagerFactory: TintedIconManager.Factory,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val toolbarViewModel: ToolbarViewModel by lazy { toolbarViewModelFactory.create() }
+    private val volumeSliderViewModel: AudioStreamSliderViewModel by lazy {
+        audioStreamSliderViewModelFactory.create(
+            AudioStreamSliderViewModel.FactoryAudioStreamWrapper(
+                AudioStream(AudioManager.STREAM_MUSIC)
+            ),
+            lifecycleScope,
+        )
+    }
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
     private val collapsedMediaVisibilityChangedListener =
@@ -246,6 +278,7 @@ constructor(
         setListenerCollections()
         lifecycleScope.launch { viewModel.activate() }
         lifecycleScope.launch { toolbarViewModel.activate() }
+        lifecycleScope.launch { axQsViewModel.activate() }
     }
 
     override fun onCreateView(
@@ -338,9 +371,12 @@ constructor(
                 ) {
                     CompositionLocalProvider(
                         LocalBlurEnabled provides blurEnabled,
+                        LocalRingerSliderViewModel provides ringerSliderViewModel,
                     ) {
-                    CollapsableQuickSettingsSTL()
-                   }
+                        WithStatusIconContext(tintedIconManagerFactory) {
+                            CollapsableQuickSettingsSTL()
+                        }
+                    }
                 }
             }
         }
@@ -386,7 +422,21 @@ constructor(
                         transitionToCookie.remove(transition) ?: -1,
                     )
                 },
+                deferTransitionProgress = true,
             )
+
+        val showQuickSettings = viewModel.isQsVisibleAndAnyShadeExpanded
+        LaunchedEffect(showQuickSettings) {
+            snapshotFlow {
+                    useOverlayShadeHeader() &&
+                        showQuickSettings &&
+                        viewModel.viewAlpha > 0f
+                }
+                .collect { shadeHeaderController.setOverlayShadeHeaderActive(it) }
+        }
+        DisposableEffect(Unit) {
+            onDispose { shadeHeaderController.setOverlayShadeHeaderActive(false) }
+        }
 
         LaunchedEffect(Unit) {
             launch {
@@ -416,41 +466,79 @@ constructor(
             }
         }
 
-        SceneTransitionLayout(
-            state = sceneState,
-            modifier = Modifier.fillMaxSize(),
-            debugName = "QuickSettings",
+        val qqsSquishiness by
+            viewModel.quickQuickSettingsViewModel.squishinessViewModel.squishiness
+                .collectAsStateWithLifecycle()
+
+        Box(
+            Modifier.fillMaxSize().thenIf(sceneState.shouldComposeLiveAxQs()) {
+                Modifier.axQsEntrance { qqsSquishiness }
+            }
         ) {
-            scene(QuickSettings, alwaysCompose = true) {
-                LaunchedEffect(Unit) { viewModel.onQSOpen() }
-                Element(QuickSettings.rootElementKey, Modifier) { QuickSettingsElement() }
-            }
-
-            scene(QuickQuickSettings, alwaysCompose = true) {
-                LaunchedEffect(Unit) { viewModel.onQQSOpen() }
-                // Cannot pass the element modifier in because the top element has a `testTag`
-                // and this would overwrite it.
-                Element(QuickQuickSettings.rootElementKey, Modifier) { QuickQuickSettingsElement() }
-            }
-
-            scene(SceneKeys.EditMode) {
-                Box(Modifier.fillMaxSize()) {
-                    Element(SceneKeys.EditMode.rootElementKey, Modifier) { EditModeElement() }
-                    /*
-                     * This provides the position of the bottom nav bar wrt to the root. As it's
-                     * full screen (and the container view has the same bounds) this can be used to
-                     * filter out touches in this bottom bar, and allow the shade to process them
-                     * if necessary.
-                     */
-                    Spacer(
-                        Modifier
-                            // default debounce 64ms (4+ frames of stability)
-                            .onLayoutRectChanged { bottomBarPositionInRoot = it.boundsInRoot }
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .windowInsetsBottomHeight(WindowInsets.systemBars)
-                    )
+            SceneTransitionLayout(
+                state = sceneState,
+                modifier = Modifier.fillMaxSize(),
+                debugName = "QuickSettings",
+            ) {
+                scene(QuickSettings, alwaysCompose = true) {
+                    if (sceneState.shouldComposeLiveAxQs()) {
+                        LaunchedEffect(Unit) { viewModel.onQSOpen() }
+                        Element(
+                            QuickSettings.rootElementKey,
+                            Modifier.axQuickSettingsSceneMotion {
+                                viewModel.expansionState.progress
+                            },
+                        ) {
+                            QuickSettingsElement()
+                        }
+                    }
                 }
+
+                scene(QuickQuickSettings, alwaysCompose = true) {
+                     if (sceneState.shouldComposeLiveAxQs()) {
+                        LaunchedEffect(Unit) { viewModel.onQQSOpen() }
+                        // Cannot pass the element modifier in because the top element has a `testTag`
+                        // and this would overwrite it.
+                        Element(QuickQuickSettings.rootElementKey, Modifier) { QuickQuickSettingsElement() }
+                    }
+                }
+
+                scene(SceneKeys.EditMode) {
+                    Box(Modifier.fillMaxSize()) {
+                        Element(SceneKeys.EditMode.rootElementKey, Modifier) { EditModeElement() }
+                        /*
+                         * This provides the position of the bottom nav bar wrt to the root. As it's
+                         * full screen (and the container view has the same bounds) this can be used to
+                         * filter out touches in this bottom bar, and allow the shade to process them
+                         * if necessary.
+                         */
+                        Spacer(
+                            Modifier
+                                // default debounce 64ms (4+ frames of stability)
+                                .onLayoutRectChanged { bottomBarPositionInRoot = it.boundsInRoot }
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .windowInsetsBottomHeight(WindowInsets.systemBars)
+                        )
+                    }
+                }
+            }
+
+            val editProgress = sceneState.editModeTransitionProgress()
+            val headerAlpha = (1f - editProgress).coerceIn(0f, 1f)
+            if (useOverlayShadeHeader() && sceneState.shouldComposeLiveAxQs() && headerAlpha > 0f) {
+                QuickSettingsStatusOverlayHeader(
+                    headerViewModel = viewModel.containerViewModel.shadeHeaderViewModel,
+                    isTransitioning =
+                        sceneState.isTransitioningBetween(QuickQuickSettings, QuickSettings),
+                    modifier =
+                        Modifier.graphicsLayer {
+                            alpha = headerAlpha
+                            scaleX = 1f - (editProgress * 0.08f)
+                            scaleY = 1f - (editProgress * 0.08f)
+                            translationY = -editProgress * 40f
+                        },
+                )
             }
         }
     }
@@ -750,120 +838,57 @@ constructor(
                             val placeable = measurable.measure(constraints)
                             layout(placeable.width, placeable.height) { placeable.place(0, 0) }
                         }
-                        .padding(top = { qqsPadding }, bottom = { bottomPadding })
+                        .padding(
+                            top = { if (useOverlayShadeHeader()) 0 else qqsPadding },
+                            bottom = { bottomPadding },
+                        )
             ) {
-                // When always compose is false, this will always be true, and we'll be
-                // listening whenever this is composed. When always compose is true, we
-                // listen if we are visible and not fully expanded
-                val isListening: () -> Boolean =
-                    remember(viewModel) {
-                            derivedStateOf {
-                                viewModel.isQsVisibleAndAnyShadeExpanded &&
-                                    viewModel.expansionState.progress < 1f &&
-                                    !viewModel.isEditing
-                            }
-                        }
-                        .let { state -> { state.value } }
-                val Tiles =
-                    @Composable {
-                        QuickQuickSettings(
-                            viewModel = viewModel.quickQuickSettingsViewModel,
-                            listening = isListening,
+                Column {
+                    if (useOverlayShadeHeader()) {
+                        Spacer(
+                            modifier =
+                                Modifier.requiredHeight(
+                                    quickSettingsContentTopPadding()
+                                )
                         )
                     }
-                val Media =
-                    @Composable {
-                        val cr = LocalContext.current.contentResolver
-                        var stockMediaEnabled by remember {
-                            mutableStateOf(
-                                Settings.System.getIntForUser(
-                                    cr, "qs_stock_media_player", 0, UserHandle.USER_CURRENT
-                                ) == 0
-                            )
-                        }
-                        DisposableEffect(Unit) {
-                            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                                override fun onChange(selfChange: Boolean) {
-                                    stockMediaEnabled = Settings.System.getIntForUser(
-                                        cr, "qs_stock_media_player", 0, UserHandle.USER_CURRENT
-                                    ) == 0
+                    // When always compose is false, this will always be true, and we'll be
+                    // listening whenever this is composed. When always compose is true, we
+                    // listen if we are visible and not fully expanded
+                    val isListening: () -> Boolean =
+                        remember(viewModel) {
+                                derivedStateOf {
+                                    viewModel.isQsVisibleAndAnyShadeExpanded &&
+                                        viewModel.expansionState.progress < 1f &&
+                                        !viewModel.isEditing
                                 }
                             }
-                            cr.registerContentObserver(
-                                Settings.System.getUriFor("qs_stock_media_player"), false, observer, UserHandle.USER_ALL
-                            )
-                            onDispose { cr.unregisterContentObserver(observer) }
-                        }
+                            .let { state -> { state.value } }
 
-                        if (stockMediaEnabled && viewModel.qqsMediaVisible) {
-                            MediaObject(
-                                // In order to have stable constraints passed to the AndroidView
-                                // during expansion (available height changing due to squishiness),
-                                // We always allow the media here to be as tall as it wants.
-                                // (b/383085298)
-                                modifier = Modifier.requiredHeightIn(max = Dp.Infinity),
-                                mediaHost = viewModel.qqsMediaHost,
-                                mediaPresentationStyle =
-                                    if (viewModel.qqsMediaInRow) {
-                                        MediaPresentationStyle.Compressed
-                                    } else {
-                                        MediaPresentationStyle.Default
-                                    },
-                                onSwipeToDismiss = viewModel::onMediaSwipeToDismiss,
-                                mediaViewModelFactory = viewModel.mediaViewModelFactory,
-                                behavior = viewModel.qqsMediaUiBehavior,
-                                visible = isListening,
-                                location = Media.Location.SHADE,
-                                expansion = { viewModel.expansionState.progress },
-                            )
-                        }
-                    }
-
-                val BrightnessSlider: @Composable () -> Unit = {
-                    Element(Elements.BrightnessSlider, modifier = modifier) {
-                        BrightnessSlider(viewModel, layoutState)
-                    }
-                }
-                if (viewModel.isQsEnabled) {
-                    Box(
-                        modifier =
-                            Modifier.collapseExpandSemanticAction(
+                    if (viewModel.isQsEnabled) {
+                        Box(
+                            modifier =
+                                Modifier.collapseExpandSemanticAction(
                                     stringResource(
                                         id = R.string.accessibility_quick_settings_expand
                                     )
                                 )
-                                .padding(horizontal = qsHorizontalMargin())
-                    ) {
-                    Column {
-                            val containerViewModel = viewModel.containerViewModel
-                            val allTiles = containerViewModel.tileGridViewModel.tileViewModels
-                            val internetTileVM = allTiles.find { it.spec.spec == "internet" }
-                                ?: allTiles.find { it.spec.spec == "wifi" }
-                            val btTileVM = allTiles.find { it.spec.spec == "bt" }
-
-                            QuickSettingsTheme {
-                            Box(modifier = Modifier.padding(horizontal = 0.dp)) {
-                                Element(IosControlPanelElementKey, modifier = Modifier.fillMaxWidth().zIndex(1f)) {
-                                    IosControlPanel(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                                        internetTile = internetTileVM,
-                                        btTile = btTileVM
-                                    )
-                                }
+                        ) {
+                            Element(Elements.QuickQuickSettingsAndMedia, Modifier.fillMaxWidth()) {
+                                AxQsMixedGrid(
+                                    viewModel = viewModel,
+                                    toolbarViewModel = toolbarViewModel,
+                                    axQsViewModel = axQsViewModel,
+                                    mediaViewModel = axMediaViewModel,
+                                    qqs = true,
+                                    listening = isListening,
+                                    brightnessSliderViewModel =
+                                        viewModel.containerViewModel.brightnessSliderViewModel,
+                                    volumeSliderViewModel = volumeSliderViewModel,
+                                    scrollState = scrollState,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
-                        }
-
-                            AxQsMixedGrid(
-                                viewModel = viewModel,
-                                toolbarViewModel = toolbarViewModel,
-                                axQsViewModel = axQsViewModel,
-                                mediaViewModel = axMediaViewModel,
-                                qqs = true,
-                                listening = isListening,
-                                brightnessSliderViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
-                                scrollState = scrollState,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
                         }
                     }
                 }
@@ -874,8 +899,8 @@ constructor(
 
     @Composable
     private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
-        val qqsPadding = viewModel.qqsHeaderHeight
         val qsExtraPadding = dimensionResource(R.dimen.qs_panel_padding_top)
+        val overlayShadeHeader = useOverlayShadeHeader()
         Column(
             modifier =
                 modifier.collapseExpandSemanticAction(
@@ -883,7 +908,25 @@ constructor(
                 )
         ) {
             if (viewModel.isQsEnabled) {
-                Element(Elements.QuickSettingsContent, modifier = Modifier.weight(1f)) {
+                if (overlayShadeHeader) {
+                    Spacer(
+                        modifier =
+                            Modifier.requiredHeight(
+                                quickSettingsContentTopPadding()
+                            )
+                    )
+                } else {
+                    Spacer(
+                        modifier =
+                            Modifier.height {
+                                qsExtraPadding.roundToPx()
+                            }
+                    )
+                }
+                Element(
+                    Elements.QuickSettingsContent,
+                    modifier = Modifier.weight(1f),
+                ) {
                     // scrollState never changes
                     LaunchedEffect(Unit) {
                         snapshotFlow { viewModel.isQsFullyCollapsed }
@@ -894,22 +937,21 @@ constructor(
                             }
                     }
 
-                    Column(
+                    val isListening: () -> Boolean =
+                        remember(viewModel) {
+                                derivedStateOf {
+                                    viewModel.isQsVisibleAndAnyShadeExpanded &&
+                                        viewModel.expansionState.progress >
+                                            QSFragmentComposeViewModel.QS_LISTENING_THRESHOLD &&
+                                        !viewModel.isEditing &&
+                                        !viewModel.isStackScrollerOverscrolling
+                                }
+                            }
+                            .let { state -> { state.value } }
+
+                    Box(
                         modifier =
                             Modifier.fillMaxSize()
-                                .onPlaced { coordinates ->
-                                    val positionOnScreen = coordinates.positionOnScreen()
-                                    val left = positionOnScreen.x
-                                    val right = left + coordinates.size.width
-                                    val top = positionOnScreen.y
-                                    val bottom = top + coordinates.size.height
-                                    viewModel.applyNewQsScrollerBounds(
-                                        left = left,
-                                        top = top,
-                                        right = right,
-                                        bottom = bottom,
-                                    )
-                                }
                                 .offset {
                                     IntOffset(
                                         x = 0,
@@ -917,134 +959,25 @@ constructor(
                                     )
                                 }
                                 .onSizeChanged { viewModel.qsScrollHeight = it.height }
-                                .verticalScroll(scrollState)
                                 .padding(bottom = 8.dp)
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
-                        val containerViewModel = viewModel.containerViewModel
-                        Spacer(
-                            modifier = Modifier.height { qqsPadding + qsExtraPadding.roundToPx() }
-                        )
-                        val allTiles = containerViewModel.tileGridViewModel.tileViewModels
-                        val internetTileVM = allTiles.find { it.spec.spec == "internet" }
-                            ?: allTiles.find { it.spec.spec == "wifi" }
-                        val btTileVM = allTiles.find { it.spec.spec == "bt" }
-
-                        QuickSettingsTheme {
-                        Box(
-                            modifier = Modifier.padding(
-                                horizontal = qsHorizontalMargin()
-                            )
-                        ) {
-                            Element(IosControlPanelElementKey, modifier = Modifier.fillMaxWidth().zIndex(1f)) {
-                                IosControlPanel(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                                    internetTile = internetTileVM,
-                                    btTile = btTileVM
-                                )
-                            }
-                           }
-                        }
-                        val BrightnessSlider: @Composable () -> Unit = {
-                            Element(Elements.BrightnessSlider, modifier = modifier) {
-                                BrightnessSlider(viewModel, layoutState)
-                            }
-                        }
-                        // When always compose is false, this will always be true, and
-                        // we'll be listening whenever this is composed. When always
-                        // compose is true, we look a the second condition and we'll
-                        // listen if QS is visible AND we are not fully collapsed.
-                        val isListening: () -> Boolean =
-                            remember(viewModel) {
-                                    derivedStateOf {
-                                        viewModel.isQsVisibleAndAnyShadeExpanded &&
-                                            viewModel.expansionState.progress >
-                                                QSFragmentComposeViewModel.QS_LISTENING_THRESHOLD &&
-                                            !viewModel.isEditing &&
-                                            !viewModel.isStackScrollerOverscrolling
-                                    }
-                                }
-                                .let { state -> { state.value } }
-                        val TileGrid =
-                            @Composable {
-                                Box {
-                                    GridAnchor()
-
-                                    TileGrid(
-                                        viewModel = containerViewModel.tileGridViewModel,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        listening = isListening,
-                                    )
-                                }
-                            }
-                        val Media =
-                            @Composable {
-                                val cr = LocalContext.current.contentResolver
-                                var stockMediaEnabled by remember {
-                                    mutableStateOf(
-                                        Settings.System.getIntForUser(
-                                            cr, "qs_stock_media_player", 0, UserHandle.USER_CURRENT
-                                        ) == 0
-                                    )
-                                }
-                                DisposableEffect(Unit) {
-                                    val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-                                        override fun onChange(selfChange: Boolean) {
-                                            stockMediaEnabled = Settings.System.getIntForUser(
-                                                cr, "qs_stock_media_player", 0, UserHandle.USER_CURRENT
-                                            ) == 0
-                                        }
-                                    }
-                                    cr.registerContentObserver(
-                                        Settings.System.getUriFor("qs_stock_media_player"), false, observer, UserHandle.USER_ALL
-                                    )
-                                    onDispose { cr.unregisterContentObserver(observer) }
-                                }
-
-                                if (stockMediaEnabled && viewModel.qsMediaVisible) {
-                                    MediaObject(
-                                        modifier = Modifier.requiredHeightIn(max = Dp.Infinity),
-                                        mediaHost = viewModel.qsMediaHost,
-                                        mediaViewModelFactory = viewModel.mediaViewModelFactory,
-                                        mediaPresentationStyle = MediaPresentationStyle.Default,
-                                        onSwipeToDismiss = viewModel::onMediaSwipeToDismiss,
-                                        behavior = viewModel.qsMediaUiBehavior,
-                                        visible = isListening,
-                                        location = Media.Location.QS,
-                                        expansion = { viewModel.expansionState.progress },
-                                    )
-                                }
-                            }
-                        Box(
+                        AxQsMixedGrid(
+                            viewModel = viewModel,
+                            toolbarViewModel = toolbarViewModel,
+                            axQsViewModel = axQsViewModel,
+                            mediaViewModel = axMediaViewModel,
+                            qqs = false,
+                            listening = isListening,
+                            brightnessSliderViewModel =
+                                viewModel.containerViewModel.brightnessSliderViewModel,
+                            volumeSliderViewModel = volumeSliderViewModel,
+                            scrollState = scrollState,
                             modifier =
-                                Modifier.fillMaxWidth()
+                                Modifier.fillMaxSize()
                                     .sysuiResTag(ResIdTags.quickSettingsPanel)
-                                    .padding(
-                                        top = QuickSettingsShade.Dimensions.VerticalPadding,
-                                        start = qsHorizontalMargin(),
-                                        end = qsHorizontalMargin(),
-                                    )
-                        ) {
-                            AxQsMixedGrid(
-                                viewModel = viewModel,
-                                toolbarViewModel = toolbarViewModel,
-                                axQsViewModel = axQsViewModel,
-                                mediaViewModel = axMediaViewModel,
-                                qqs = false,
-                                listening = isListening,
-                                brightnessSliderViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
-                                scrollState = scrollState,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-                QuickSettingsTheme {
-                    Element(
-                        Elements.FooterActions,
-                        Modifier.sysuiResTag(ResIdTags.qsFooterActions),
-                    ) {
-                        FooterActions(viewModel = viewModel.footerActionsViewModel)
+                                    .graphicsLayer {},
+                        )
                     }
                 }
             }
@@ -1101,20 +1034,32 @@ constructor(
                     maxColumns = columns,
                     verticalSliderStyle = style,
                     brightnessViewModel = viewModel.containerViewModel.brightnessSliderViewModel,
+                    volumeViewModel = volumeSliderViewModel,
                     mediaViewModel = axMediaViewModel,
                     modifier = Modifier.fillMaxSize(),
                 )
             },
             onOpenPanelSettings = {
                 try {
-                    val intent = android.content.Intent("android.settings.MIST_SETTINGS")
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // Exit Edit Mode before launching Settings so QS edit
+                    // is not still active when the user returns.
+                    viewModel.containerViewModel.editModeViewModel.stopEditing()
+                    val intent = android.content.Intent().apply {
+                        setClassName("com.android.settings", "com.android.settings.SubSettings")
+                        putExtra(":settings:show_fragment", "org.mist.settings.fragments.quicksettings.PanelCustomisations")
+                        putExtra(":settings:show_fragment_title", "Panel Customisations")
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
                     context.startActivity(intent)
                 } catch (_: Exception) {}
             },
             animateItemBounds = true,
             splitShade = viewModel.isInSplitShade,
-            modifier = modifier.fillMaxWidth(),
+            onResetTiles = { editTilesResetInteractor.reset() },
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .padding(top = { viewModel.qqsHeaderHeight }),
         )
     }
 
@@ -1131,6 +1076,42 @@ constructor(
             }
         } ?: this
     }
+
+    @Composable
+    private fun QuickSettingsStatusOverlayHeader(
+        headerViewModel: ShadeHeaderViewModel,
+        isTransitioning: Boolean,
+        modifier: Modifier = Modifier,
+    ) {
+        val displayCutoutTopPadding =
+            WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+        val isLandscape =
+            LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val topPadding =
+            when {
+                isLandscape -> 4.dp
+                else -> displayCutoutTopPadding
+            }
+        AxQuickSettingsHeader(
+            viewModel = headerViewModel,
+            isTransitioning = isTransitioning,
+            modifier = modifier.fillMaxWidth().padding(top = topPadding),
+        )
+    }
+
+    @Composable
+    private fun quickSettingsContentTopPadding(): Dp {
+        if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            return 0.dp
+        }
+        val displayCutoutTop =
+            WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+        val statusBarHeight =
+            WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        return displayCutoutTop + statusBarHeight + QuickSettingsShade.Dimensions.ShortPadding
+    }
+
+    private fun useOverlayShadeHeader() = true
 
     private fun registerDumpable() {
         val instanceId = instanceProvider.getNextId()
@@ -1417,16 +1398,16 @@ private class FrameLayoutTouchPassthrough(
             dirtyClipData = false
             updateClippingPath()
         }
-        if (!currentClippingPath.isEmpty) {
-            canvas.translate(0f, -translationY)
-            canvas.clipOutPath(currentClippingPath)
-            canvas.translate(0f, translationY)
-        }
         if (qsVisible) {
             // If QS should not be visible, there's no need to draw this tree at all. We do this
             // in the view (instead of in compose) so it's completely synchronized with the clip.
             // As this FrameLayout doesn't have any content, and the ComposeView is the only child,
             // this is equivalent to blocking the draw in `drawChild`.
+            if (!currentClippingPath.isEmpty) {
+                canvas.translate(0f, -translationY)
+                canvas.clipOutPath(currentClippingPath)
+                canvas.translate(0f, translationY)
+            }
             super.dispatchDraw(canvas)
         }
     }
