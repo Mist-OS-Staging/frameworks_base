@@ -623,8 +623,26 @@ constructor(
         }
     }
 
+    private var composeOverlayHeaderActive = false
+        set(value) {
+            if (field == value) return
+            field = value
+
+            if (value) {
+                privacyIconsController.stopListening()
+            } else if (qsVisible) {
+                privacyIconsController.startListening()
+            }
+
+            updateVisibility()
+        }
+
+    fun setOverlayShadeHeaderActive(active: Boolean) {
+        composeOverlayHeaderActive = active
+    }
+
     private fun onShadeExpandedChanged() {
-        if (qsVisible) {
+        if (qsVisible && !composeOverlayHeaderActive) {
             privacyIconsController.startListening()
         } else {
             privacyIconsController.stopListening()
@@ -644,6 +662,8 @@ constructor(
     private fun updateVisibility() {
         val visibility =
             if (qsDisabled) {
+                View.GONE
+            } else if (composeOverlayHeaderActive) {
                 View.GONE
             } else if (qsVisible && !customizing) {
                 View.VISIBLE
