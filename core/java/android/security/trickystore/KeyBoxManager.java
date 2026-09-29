@@ -99,7 +99,8 @@ public class KeyBoxManager {
             boolean inNumberOfKeyboxes = false;
             StringBuilder numberOfKeyboxesBuilder = null;
             Integer declaredKeyboxCount = null;
-            int parsedKeyCount = 0;
+            int parsedKeyboxCount = 0;
+            int keysInCurrentKeybox = 0;
 
             int eventType = parser.getEventType();
             while (eventType != XmlPullParser.END_DOCUMENT) {
@@ -126,6 +127,8 @@ public class KeyBoxManager {
                         } else if ("NumberOfKeyboxes".equals(tagName) && !inKey) {
                             inNumberOfKeyboxes = true;
                             numberOfKeyboxesBuilder = new StringBuilder();
+                        } else if ("Keybox".equalsIgnoreCase(tagName)) {
+                            keysInCurrentKeybox = 0;
                         }
                         break;
 
@@ -176,9 +179,17 @@ public class KeyBoxManager {
                         } else if ("Key".equals(tagName)) {
                             inKey = false;
                             if (currentAlgorithm != null && privateKeyPem != null && !certificatePems.isEmpty()) {
+                                int sizeBefore = mKeyboxes.size();
                                 processKeybox(currentAlgorithm, privateKeyPem, certificatePems);
-                                parsedKeyCount++;
+                                if (mKeyboxes.size() > sizeBefore) {
+                                    keysInCurrentKeybox++;
+                                }
                             }
+                        } else if ("Keybox".equalsIgnoreCase(tagName)) {
+                            if (keysInCurrentKeybox > 0) {
+                                parsedKeyboxCount++;
+                            }
+                            keysInCurrentKeybox = 0;
                         }
                         break;
                 }
@@ -189,9 +200,9 @@ public class KeyBoxManager {
             // Guards against a truncated or partially-fetched keybox.xml (network hiccup
             // mid auto-refresh, or a bad KEYBOX_SOURCE_USER paste) silently taking effect
             // with fewer keys than the document itself declares it has.
-            if (declaredKeyboxCount != null && declaredKeyboxCount != parsedKeyCount) {
+            if (declaredKeyboxCount != null && declaredKeyboxCount != parsedKeyboxCount) {
                 Log.e(TAG, "Keybox XML declares " + declaredKeyboxCount + " keybox(es) but only "
-                        + parsedKeyCount + " parsed successfully — rejecting as incomplete");
+                        + parsedKeyboxCount + " parsed successfully — rejecting as incomplete");
                 mKeyboxes.clear();
                 return;
             }

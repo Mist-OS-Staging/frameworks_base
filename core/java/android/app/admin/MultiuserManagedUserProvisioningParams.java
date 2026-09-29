@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Android Open Source Project
+ * Copyright (C) 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,13 +29,16 @@ import android.stats.devicepolicy.DevicePolicyEnums;
 
 /**
  * Params required to provision a managed full user on a multi-user device. See
- * {@link DevicePolicyManager#provisionMultiuserManagedUser}.
+ * {@link DevicePolicyManager#provisionMultiUserManagedUser}.
+ *
+ * <p>This will be removed soon. Please use
+ * {@link #MultiuserManagedUserProvisioningParams} instead.
  *
  * @hide
  */
 @SystemApi
 @FlaggedApi(Flags.FLAG_MULTI_USER_MANAGEMENT_USER_PROVISIONING)
-public final class MultiuserManagedUserProvisioningParams {
+public final class MultiUserManagedUserProvisioningParams {
     private static final String LEAVE_ALL_SYSTEM_APPS_ENABLED_PARAM =
             "LEAVE_ALL_SYSTEM_APPS_ENABLED";
 
@@ -43,12 +46,12 @@ public final class MultiuserManagedUserProvisioningParams {
     private final MultiuserManagedUserProvisioningParamsTransport mTransport;
 
     /**
-     * Constructs a new {@link MultiuserManagedUserProvisioningParams} object.
+     * Constructs a new {@link MultiUserManagedUserProvisioningParams} object.
      *
      * @param transport The transport representation of the params.
      * @hide
      */
-    public MultiuserManagedUserProvisioningParams(
+    public MultiUserManagedUserProvisioningParams(
             @NonNull MultiuserManagedUserProvisioningParamsTransport transport) {
         this.mTransport = transport;
     }
@@ -86,17 +89,16 @@ public final class MultiuserManagedUserProvisioningParams {
     }
 
     private void logParam(String callerPackage, String param, boolean value) {
-        DevicePolicyEventLogger
-                .createEvent(DevicePolicyEnums.PLATFORM_PROVISIONING_PARAM)
-                .setStrings(callerPackage)
-                .setAdmin(mTransport.profileAdminComponentName)
-                .setStrings(param)
-                .setBoolean(value)
-                .write();
+        DevicePolicyEventLogger.createEvent(
+                DevicePolicyEnums.PLATFORM_PROVISIONING_PARAM).setStrings(callerPackage).setAdmin(
+                mTransport.profileAdminComponentName).setStrings(param).setBoolean(value).write();
     }
 
     /**
-     * Builder class for {@link MultiuserManagedUserProvisioningParams} objects.
+     * Builder class for {@link MultiUserManagedUserProvisioningParams} objects.
+     *
+     * <p>This will be removed soon. Please use
+     * {@link MultiuserManagedUserProvisioningParams.Builder} instead.
      *
      * @hide
      */
@@ -109,9 +111,9 @@ public final class MultiuserManagedUserProvisioningParams {
 
         /**
          * Initialize a new {@link Builder} to construct a
-         * {@link MultiuserManagedUserProvisioningParams}.
+         * {@link MultiUserManagedUserProvisioningParams}.
          * <p>
-         * See {@link DevicePolicyManager#provisionMultiuserManagedUser}
+         * See {@link DevicePolicyManager#provisionMultiUserManagedUser}
          *
          * @param profileAdminComponentName The admin {@link ComponentName} to be set as the profile
          *                                  owner.
@@ -125,7 +127,7 @@ public final class MultiuserManagedUserProvisioningParams {
 
         /**
          * Sets whether non-required system apps should be installed on the created user when
-         * {@link DevicePolicyManager#provisionMultiuserManagedUser} is called. Defaults to
+         * {@link DevicePolicyManager#provisionMultiUserManagedUser} is called. Defaults to
          * {@code false} if not set.
          */
         @NonNull
@@ -137,11 +139,11 @@ public final class MultiuserManagedUserProvisioningParams {
         /**
          * Combines all of the attributes that have been set on this {@code Builder}.
          *
-         * @return a new {@link MultiuserManagedUserProvisioningParams} object.
+         * @return a new {@link MultiUserManagedUserProvisioningParams} object.
          */
         @NonNull
-        public MultiuserManagedUserProvisioningParams build() {
-            return new MultiuserManagedUserProvisioningParams(mTransport);
+        public MultiUserManagedUserProvisioningParams build() {
+            return new MultiUserManagedUserProvisioningParams(mTransport);
         }
     }
 }
