@@ -18,6 +18,7 @@ package com.android.systemui.qs.panels.ui.compose
 
 import android.content.Intent
 import android.graphics.drawable.Drawable
+import android.util.Log
 import android.widget.ImageView
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -271,15 +272,15 @@ internal fun AxQsDateHeader(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             if (showDate) {
                 AxQuickSettingsDate(viewModel = shadeHeaderViewModel)
             }
-        }
-        if (showEdit) {
-            AxQsWeather(
-                modifier = Modifier.padding(end = 4.dp),
-            )
+            AxQsWeather()
         }
         AxQsHeaderActions(
             viewModel = toolbarViewModel,
@@ -301,20 +302,38 @@ fun AxQsWeather(
 
     DisposableEffect(context) {
         val client = OmniJawsClient.get()
-        fun updateWeather() {
+
+        fun readWeather() {
+            try {
+                val info = client.weatherInfo
+                weatherInfo = info
+                weatherIcon =
+                    if (info != null) {
+                        client.getWeatherConditionImage(context, info.conditionCode)
+                    } else {
+                        null
+                    }
+                Log.d(
+                    "AxQsWeather",
+                    "enabled=${client.isOmniJawsEnabled(context)} info=${client.weatherInfo}"
+                )
+            } catch (e: Exception) {
+                Log.e("AxQsWeather", "Failed to update OmniJaws weather", e)
+                weatherInfo = null
+                weatherIcon = null
+            }
+        }
+
+        fun requestWeather() {
             try {
                 if (client.isOmniJawsEnabled(context)) {
                     client.queryWeather(context)
-                    val info = client.weatherInfo
-                    weatherInfo = info
-                    weatherIcon =
-                        if (info != null) client.getWeatherConditionImage(context, info.conditionCode)
-                        else null
                 } else {
                     weatherInfo = null
                     weatherIcon = null
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("AxQsWeather", "Failed to update OmniJaws weather", e)
                 weatherInfo = null
                 weatherIcon = null
             }
@@ -323,7 +342,7 @@ fun AxQsWeather(
         val observer =
             object : OmniJawsClient.OmniJawsObserver {
                 override fun weatherUpdated() {
-                    updateWeather()
+                    readWeather()
                 }
 
                 override fun weatherError(errorReason: Int) {
@@ -334,12 +353,14 @@ fun AxQsWeather(
                 }
 
                 override fun updateSettings() {
-                    updateWeather()
+                    requestWeather()
+                    readWeather()
                 }
             }
 
-        updateWeather()
         client.addObserver(context, observer)
+        requestWeather()
+        readWeather()
 
         onDispose { client.removeObserver(context, observer) }
     }
