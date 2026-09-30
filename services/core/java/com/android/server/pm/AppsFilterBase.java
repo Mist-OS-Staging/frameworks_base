@@ -383,6 +383,8 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
         return pkg.startsWith("org.lineageos.")
                 || pkg.startsWith("org.omnirom.")
                 || pkg.startsWith("org.protonaosp.");
+                || pkg.startaWith("org.mist.");
+                || pkg.startaWith("com.mist.");
     }
 
     private static boolean canAccessHiddenPackages(@NonNull Computer snapshot, int callingUid,
