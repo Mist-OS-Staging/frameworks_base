@@ -157,6 +157,7 @@ import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewMo
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
 import com.android.systemui.qs.panels.ui.compose.AxQuickSettingsHeader
 import com.android.systemui.qs.panels.ui.compose.EditMode
+import com.android.systemui.qs.panels.ui.compose.LocalAxQsExpansionProgress
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.IosControlPanel
@@ -486,11 +487,13 @@ constructor(
                         LaunchedEffect(Unit) { viewModel.onQSOpen() }
                         Element(
                             QuickSettings.rootElementKey,
-                            Modifier.axQuickSettingsSceneMotion {
-                                viewModel.expansionState.progress
-                            },
+                            Modifier,
                         ) {
-                            QuickSettingsElement()
+                            CompositionLocalProvider(
+                                LocalAxQsExpansionProgress provides { viewModel.expansionState.progress }
+                            ) {
+                                QuickSettingsElement()
+                            }
                         }
                     }
                 }
