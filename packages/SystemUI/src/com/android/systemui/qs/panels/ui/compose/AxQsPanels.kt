@@ -17,7 +17,11 @@
 package com.android.systemui.qs.panels.ui.compose
 
 import android.content.Intent
+import android.database.ContentObserver
 import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.ImageView
 import androidx.compose.foundation.ScrollState
@@ -52,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -84,6 +89,7 @@ import com.android.systemui.common.ui.compose.Icon as SystemUiIcon
 import com.android.systemui.common.ui.compose.PagerDots
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.lifecycle.rememberViewModel
+import com.android.systemui.qs.composefragment.ui.axQuickSettingsSceneMotion
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsButtonViewModel
 import com.android.systemui.qs.panels.shared.model.AxQsGridItem
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
@@ -91,6 +97,8 @@ import com.android.systemui.res.R
 import com.android.systemui.shade.ui.composable.ShadeHeader
 import com.android.systemui.shade.ui.viewmodel.ShadeHeaderViewModel
 import com.android.internal.util.android.OmniJawsClient
+
+val LocalAxQsExpansionProgress = compositionLocalOf<() -> Float> { { 1f } }
 
 private val DragHandleWidth = 56.dp
 private val DragHandleHeight = 4.dp
@@ -112,6 +120,7 @@ internal fun <T> ContentScope.AxQQS(
     isFullyVisible: () -> Boolean,
     editButtonProgress: () -> Float,
     separateMode: Boolean,
+    showWeather: Boolean = true,
     modifier: Modifier = Modifier,
     controlContent: @Composable (AxQsGridItem<T>) -> Unit,
     tileContent: @Composable (AxQsGridItem<T>) -> Unit,
@@ -126,6 +135,7 @@ internal fun <T> ContentScope.AxQQS(
             toolbarViewModel = toolbarViewModel,
             shadeHeaderViewModel = shadeHeaderViewModel,
             showEdit = false,
+            showWeather = showWeather,
             isFullyVisible = isFullyVisible,
             editButtonProgress = editButtonProgress,
         )
@@ -191,6 +201,7 @@ internal fun <T> ContentScope.AxQS(
     scrollState: ScrollState,
     circleCells: Boolean,
     showDate: Boolean = false,
+    showWeather: Boolean = true,
     modifier: Modifier = Modifier,
     controlContent: @Composable (AxQsGridItem<T>) -> Unit,
     tileContent: @Composable (AxQsGridItem<T>) -> Unit,
@@ -206,6 +217,7 @@ internal fun <T> ContentScope.AxQS(
             shadeHeaderViewModel = shadeHeaderViewModel,
             showEdit = true,
             showDate = showDate,
+            showWeather = showWeather,
             isFullyVisible = isFullyVisible,
             editButtonProgress = editButtonProgress,
         )
@@ -230,7 +242,10 @@ internal fun <T> ContentScope.AxQS(
                     )
                 }
                 if (tileItems.isNotEmpty()) {
-                    Column {
+                    val expansionProgress = LocalAxQsExpansionProgress.current
+                    Column(
+                        modifier = Modifier.axQuickSettingsSceneMotion(expansionProgress)
+                    ) {
                         AxQsTileGrid(
                             items = tileItems,
                             columns = tileColumns,
@@ -267,6 +282,7 @@ internal fun AxQsDateHeader(
     shadeHeaderViewModel: ShadeHeaderViewModel,
     showEdit: Boolean,
     showDate: Boolean = false,
+    showWeather: Boolean = true,
     isFullyVisible: () -> Boolean,
     editButtonProgress: () -> Float,
     modifier: Modifier = Modifier,
@@ -280,7 +296,9 @@ internal fun AxQsDateHeader(
             if (showDate) {
                 AxQuickSettingsDate(viewModel = shadeHeaderViewModel)
             }
-            AxQsWeather()
+            if (showWeather) {
+                AxQsWeather()
+            }
         }
         AxQsHeaderActions(
             viewModel = toolbarViewModel,
@@ -342,6 +360,7 @@ fun AxQsWeather(
         val observer =
             object : OmniJawsClient.OmniJawsObserver {
                 override fun weatherUpdated() {
+                    requestWeather()
                     readWeather()
                 }
 
@@ -358,11 +377,39 @@ fun AxQsWeather(
                 }
             }
 
+        val contentObserver =
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean, uri: Uri?) {
+                    requestWeather()
+                    readWeather()
+                }
+            }
+
+        try {
+            context.contentResolver.registerContentObserver(
+                OmniJawsClient.WEATHER_URI,
+                true,
+                contentObserver,
+            )
+            context.contentResolver.registerContentObserver(
+                OmniJawsClient.SETTINGS_URI,
+                true,
+                contentObserver,
+            )
+        } catch (e: Exception) {
+            Log.e("AxQsWeather", "Failed to register ContentObserver", e)
+        }
+
         client.addObserver(context, observer)
         requestWeather()
         readWeather()
 
-        onDispose { client.removeObserver(context, observer) }
+        onDispose {
+            try {
+                context.contentResolver.unregisterContentObserver(contentObserver)
+            } catch (_: Exception) {}
+            client.removeObserver(context, observer)
+        }
     }
 
     val info = weatherInfo ?: return
