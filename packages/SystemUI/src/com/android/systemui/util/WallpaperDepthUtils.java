@@ -26,8 +26,10 @@ import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.net.Uri;
+import java.util.List;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,6 +39,7 @@ import android.util.DisplayMetrics;
 import android.util.MathUtils;
 import android.util.Log;
 import android.view.Display;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
@@ -109,15 +112,47 @@ public class WallpaperDepthUtils {
                 WALLPAPER_DEPTH_BOTTOM_FADE_KEY, WALLPAPER_DEPTH_FADE_CURVE_KEY,
                 WALLPAPER_DEPTH_BOTTOM_INSET_KEY, WALLPAPER_DEPTH_SPATIAL_KEY);
 
-        mLockScreenBackground = new FrameLayout(mContext);
+        mLockScreenBackground = new FrameLayout(mContext) {
+            @Override
+            public boolean dispatchTouchEvent(MotionEvent ev) {
+                return false;
+            }
+
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent ev) {
+                return false;
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent ev) {
+                return false;
+            }
+        };
         FrameLayout.LayoutParams bgLp = new FrameLayout.LayoutParams(-1, -1);
         mLockScreenBackground.setLayoutParams(bgLp);
         mLockScreenBackground.setClickable(false);
+        mLockScreenBackground.setLongClickable(false);
         mLockScreenBackground.setFocusable(false);
+        mLockScreenBackground.setFocusableInTouchMode(false);
         mLockScreenBackground.setImportantForAccessibility(
                 View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         mLockScreenSubject = new FrameLayout(mContext) {
+            @Override
+            public boolean dispatchTouchEvent(MotionEvent ev) {
+                return false;
+            }
+
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent ev) {
+                return false;
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent ev) {
+                return false;
+            }
+
             @Override
             protected void onAttachedToWindow() {
                 super.onAttachedToWindow();
@@ -153,7 +188,9 @@ public class WallpaperDepthUtils {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
         mLockScreenSubject.setLayoutParams(lp);
         mLockScreenSubject.setClickable(false);
+        mLockScreenSubject.setLongClickable(false);
         mLockScreenSubject.setFocusable(false);
+        mLockScreenSubject.setFocusableInTouchMode(false);
         mLockScreenSubject.setImportantForAccessibility(
                 View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
@@ -612,6 +649,78 @@ public class WallpaperDepthUtils {
         return scaledWallpaperBitmap;
     }
 
+    private Bitmap cropToDisplay(Bitmap bitmap) {
+        if (bitmap == null || bitmap.getWidth() <= 0 || bitmap.getHeight() <= 0) {
+            return bitmap;
+        }
+        Rect displayBounds = mContext
+                .getSystemService(WindowManager.class)
+                .getCurrentWindowMetrics()
+                .getBounds();
+        int targetWidth = Math.min(displayBounds.width(), displayBounds.height());
+        int targetHeight = Math.max(displayBounds.width(), displayBounds.height());
+        if (targetWidth <= 0 || targetHeight <= 0) {
+            return bitmap;
+        }
+
+        WallpaperManager wm = WallpaperManager.getInstance(mContext);
+        if (wm == null) {
+            return bitmap;
+        }
+
+        int which = (wm.getWallpaperFile(WallpaperManager.FLAG_LOCK) != null)
+                ? WallpaperManager.FLAG_LOCK
+                : WallpaperManager.FLAG_SYSTEM;
+
+        try {
+            List<Rect> crops = wm.getBitmapCrops(
+                    List.of(new Point(targetWidth, targetHeight)), which, false);
+            if (crops != null && !crops.isEmpty() && crops.get(0) != null) {
+                Rect wallpaperFrame = crops.get(0);
+                if (wallpaperFrame.width() > 0 && wallpaperFrame.height() > 0) {
+                    float screenRatio = targetWidth / (float) targetHeight;
+                    float frameRatio = wallpaperFrame.width() / (float) wallpaperFrame.height();
+                    Rect visibleCrop;
+                    if (frameRatio > screenRatio) {
+                        int visibleW = Math.round(wallpaperFrame.height() * screenRatio);
+                        int leftOffset = (wallpaperFrame.width() - visibleW) / 2;
+                        visibleCrop = new Rect(
+                                wallpaperFrame.left + leftOffset,
+                                wallpaperFrame.top,
+                                wallpaperFrame.left + leftOffset + visibleW,
+                                wallpaperFrame.bottom);
+                    } else if (frameRatio < screenRatio) {
+                        int visibleH = Math.round(wallpaperFrame.width() / screenRatio);
+                        int topOffset = (wallpaperFrame.height() - visibleH) / 2;
+                        visibleCrop = new Rect(
+                                wallpaperFrame.left,
+                                wallpaperFrame.top + topOffset,
+                                wallpaperFrame.right,
+                                wallpaperFrame.top + topOffset + visibleH);
+                    } else {
+                        visibleCrop = wallpaperFrame;
+                    }
+
+                    int cl = Math.max(0, Math.min(visibleCrop.left, bitmap.getWidth() - 1));
+                    int ct = Math.max(0, Math.min(visibleCrop.top, bitmap.getHeight() - 1));
+                    int cw = Math.min(visibleCrop.width(), bitmap.getWidth() - cl);
+                    int ch = Math.min(visibleCrop.height(), bitmap.getHeight() - ct);
+                    if (cw > 0 && ch > 0 && (cl > 0 || ct > 0
+                            || cw < bitmap.getWidth() || ch < bitmap.getHeight())) {
+                        Bitmap cropped = Bitmap.createBitmap(bitmap, cl, ct, cw, ch);
+                        if (cropped != bitmap) {
+                            bitmap.recycle();
+                            return cropped;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w("WallpaperDepthUtils", "Failed to crop background bitmap to display", e);
+        }
+        return bitmap;
+    }
+
     public void updateDepthWallpaper(boolean forced) {
         if (mLockScreenSubject == null || !isDWallpaperEnabled()) {
             return;
@@ -760,6 +869,7 @@ public class WallpaperDepthUtils {
                 Bitmap bgRaw = loadSystemWallpaperBitmap();
 
                 if (bgRaw != null) {
+                    bgRaw = cropToDisplay(bgRaw);
                     Bitmap resizedBg =
                             getResizedBitmap(
                                     bgRaw,
