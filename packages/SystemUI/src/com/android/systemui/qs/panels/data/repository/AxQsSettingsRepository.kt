@@ -91,6 +91,12 @@ constructor(
     val quickPanelOnLeft: StateFlow<Boolean> = boolSetting(QUICK_PANEL_ON_LEFT, false)
     val showWeather: StateFlow<Boolean> = boolSetting(SHOW_WEATHER, true)
 
+    val headerTopMargin: StateFlow<Int> =
+        intSetting(HEADER_TOP_MARGIN, 0)
+            .map { it.coerceIn(0, MAX_HEADER_TOP_MARGIN_DP) }
+            .distinctUntilChanged()
+            .stateIn(applicationScope, SharingStarted.Eagerly, 0)
+
     val verticalSliderStyles: StateFlow<Map<AxQsVerticalSliderKey, AxQsVerticalSliderStyle>> =
         verticalSliderStyleSettings()
 
@@ -440,6 +446,8 @@ constructor(
         const val PORTRAIT_QS_TILE_LABELS = "ax_qs_show_tile_labels"
         const val SPLIT_SHADE_TILE_LABELS = "ax_qs_split_shade_show_tile_labels"
         const val SHOW_WEATHER = "ax_qs_show_weather"
+        const val HEADER_TOP_MARGIN = "ax_qs_header_top_margin"
+        const val MAX_HEADER_TOP_MARGIN_DP = 40
 
         val VERTICAL_SLIDER_KEYS =
             AxQsLayout.entries.flatMap { layout ->

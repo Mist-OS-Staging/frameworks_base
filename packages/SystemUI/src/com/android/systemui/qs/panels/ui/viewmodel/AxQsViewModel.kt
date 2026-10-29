@@ -219,6 +219,12 @@ constructor(
             initialValue = true,
             source = repository.showWeather,
         )
+    val headerTopMargin by
+        hydrator.hydratedStateOf(
+            traceName = "headerTopMargin",
+            initialValue = 0,
+            source = repository.headerTopMargin,
+        )
     private val verticalSliderStyles by
         hydrator.hydratedStateOf(
             traceName = "verticalSliderStyles",

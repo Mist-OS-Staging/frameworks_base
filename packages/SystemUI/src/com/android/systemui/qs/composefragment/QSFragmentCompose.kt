@@ -1110,7 +1110,7 @@ constructor(
         val topPadding =
             when {
                 isLandscape -> 4.dp
-                else -> displayCutoutTopPadding
+                else -> displayCutoutTopPadding + axQsViewModel.headerTopMargin.dp
             }
         AxQuickSettingsHeader(
             viewModel = headerViewModel,
