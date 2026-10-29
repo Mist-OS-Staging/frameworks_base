@@ -137,6 +137,7 @@ import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.lifecycle.setSnapshotBinding
 import com.android.systemui.log.table.TableLogBuffer
 import com.android.systemui.media.controls.ui.view.MediaHost
+import com.android.systemui.media.controls.ui.view.MediaHostState
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
@@ -161,6 +162,7 @@ import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.LocalAxQsExpansionProgress
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
+import com.android.systemui.qs.panels.ui.compose.toolbar.Toolbar
 import com.android.systemui.qs.panels.ui.compose.IosControlPanel
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
@@ -404,11 +406,21 @@ constructor(
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            axFromQuickQuickSettingsToQuickSettings()
+                            if (axQsViewModel.customStyle) {
+                                axFromQuickQuickSettingsToQuickSettings()
+                            } else {
+                                quickQuickSettingsToQuickSettings(
+                                    animateTilesExpansion = { viewModel.animateTilesExpansion }
+                                )
+                            }
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
-                            toAxEditMode()
+                            if (axQsViewModel.customStyle) {
+                                toAxEditMode()
+                            } else {
+                                toEditMode()
+                            }
                         }
                     },
                 onTransitionStart = { transition ->
@@ -474,7 +486,9 @@ constructor(
                 .collectAsStateWithLifecycle()
 
         Box(
-            Modifier.fillMaxSize().thenIf(sceneState.shouldComposeLiveAxQs()) {
+            Modifier.fillMaxSize().thenIf(
+                axQsViewModel.customStyle && sceneState.shouldComposeLiveAxQs()
+            ) {
                 Modifier.axQsEntrance { qqsSquishiness }
             }
         ) {
@@ -484,33 +498,45 @@ constructor(
                 debugName = "QuickSettings",
             ) {
                 scene(QuickSettings, alwaysCompose = true) {
-                    if (sceneState.shouldComposeLiveAxQs()) {
+                    // The stock style always composes its scenes; the Ax style only composes
+                    // them while they are (or are becoming) visible.
+                    if (!axQsViewModel.customStyle || sceneState.shouldComposeLiveAxQs()) {
                         LaunchedEffect(Unit) { viewModel.onQSOpen() }
                         Element(
                             QuickSettings.rootElementKey,
                             Modifier,
                         ) {
-                            CompositionLocalProvider(
-                                LocalAxQsExpansionProgress provides { viewModel.expansionState.progress }
-                            ) {
-                                QuickSettingsElement()
+                            if (axQsViewModel.customStyle) {
+                                CompositionLocalProvider(
+                                    LocalAxQsExpansionProgress provides {
+                                        viewModel.expansionState.progress
+                                    }
+                                ) {
+                                    QuickSettingsElement(layoutState = sceneState)
+                                }
+                            } else {
+                                QuickSettingsElement(layoutState = sceneState)
                             }
                         }
                     }
                 }
 
                 scene(QuickQuickSettings, alwaysCompose = true) {
-                    if (sceneState.shouldComposeLiveAxQs()) {
+                    if (!axQsViewModel.customStyle || sceneState.shouldComposeLiveAxQs()) {
                         LaunchedEffect(Unit) { viewModel.onQQSOpen() }
                         // Cannot pass the element modifier in because the top element has a `testTag`
                         // and this would overwrite it.
-                        Element(QuickQuickSettings.rootElementKey, Modifier) { QuickQuickSettingsElement() }
+                        Element(QuickQuickSettings.rootElementKey, Modifier) {
+                            QuickQuickSettingsElement(layoutState = sceneState)
+                        }
                     }
                 }
 
                 scene(SceneKeys.EditMode) {
                     Box(Modifier.fillMaxSize()) {
-                        Element(SceneKeys.EditMode.rootElementKey, Modifier) { EditModeElement() }
+                        Element(SceneKeys.EditMode.rootElementKey, Modifier) {
+                            if (axQsViewModel.customStyle) EditModeElement() else StockEditModeElement()
+                        }
                         /*
                          * This provides the position of the bottom nav bar wrt to the root. As it's
                          * full screen (and the container view has the same bounds) this can be used to
@@ -821,7 +847,10 @@ constructor(
     }
 
     @Composable
-    private fun ContentScope.QuickQuickSettingsElement(modifier: Modifier = Modifier) {
+    private fun ContentScope.QuickQuickSettingsElement(
+        layoutState: SceneTransitionLayoutState,
+        modifier: Modifier = Modifier,
+    ) {
         val qqsPadding = viewModel.qqsHeaderHeight
         val bottomPadding = viewModel.qqsBottomPadding
         DisposableEffect(Unit) {
@@ -896,19 +925,26 @@ constructor(
                                 )
                         ) {
                             Element(Elements.QuickQuickSettingsAndMedia, Modifier.fillMaxWidth()) {
-                                AxQsMixedGrid(
-                                    viewModel = viewModel,
-                                    toolbarViewModel = toolbarViewModel,
-                                    axQsViewModel = axQsViewModel,
-                                    mediaViewModel = axMediaViewModel,
-                                    qqs = true,
-                                    listening = isListening,
-                                    brightnessSliderViewModel =
-                                        viewModel.containerViewModel.brightnessSliderViewModel,
-                                    volumeSliderViewModel = volumeSliderViewModel,
-                                    scrollState = scrollState,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                                if (axQsViewModel.customStyle) {
+                                    AxQsMixedGrid(
+                                        viewModel = viewModel,
+                                        toolbarViewModel = toolbarViewModel,
+                                        axQsViewModel = axQsViewModel,
+                                        mediaViewModel = axMediaViewModel,
+                                        qqs = true,
+                                        listening = isListening,
+                                        brightnessSliderViewModel =
+                                            viewModel.containerViewModel.brightnessSliderViewModel,
+                                        volumeSliderViewModel = volumeSliderViewModel,
+                                        scrollState = scrollState,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                } else {
+                                    StockQuickQuickSettingsContent(
+                                        isListening = isListening,
+                                        layoutState = layoutState,
+                                    )
+                                }
                             }
                         }
                     }
@@ -919,7 +955,10 @@ constructor(
     }
 
     @Composable
-    private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
+    private fun ContentScope.QuickSettingsElement(
+        layoutState: SceneTransitionLayoutState,
+        modifier: Modifier = Modifier,
+    ) {
         val qsExtraPadding = dimensionResource(R.dimen.qs_panel_padding_top)
         val overlayShadeHeader = useOverlayShadeHeader()
         Column(
@@ -970,40 +1009,171 @@ constructor(
                             }
                             .let { state -> { state.value } }
 
-                    Box(
-                        modifier =
-                            Modifier.fillMaxSize()
-                                .offset {
-                                    IntOffset(
-                                        x = 0,
-                                        y = viewModel.qsScrollTranslationY.fastRoundToInt(),
-                                    )
-                                }
-                                .onSizeChanged { viewModel.qsScrollHeight = it.height }
-                                .padding(bottom = 8.dp)
-                                .sysuiResTag(ResIdTags.qsScroll)
-                    ) {
-                        AxQsMixedGrid(
-                            viewModel = viewModel,
-                            toolbarViewModel = toolbarViewModel,
-                            axQsViewModel = axQsViewModel,
-                            mediaViewModel = axMediaViewModel,
-                            qqs = false,
-                            listening = isListening,
-                            brightnessSliderViewModel =
-                                viewModel.containerViewModel.brightnessSliderViewModel,
-                            volumeSliderViewModel = volumeSliderViewModel,
-                            scrollState = scrollState,
+                    if (axQsViewModel.customStyle) {
+                        Box(
                             modifier =
                                 Modifier.fillMaxSize()
-                                    .sysuiResTag(ResIdTags.quickSettingsPanel)
-                                    .graphicsLayer {},
+                                    .offset {
+                                        IntOffset(
+                                            x = 0,
+                                            y = viewModel.qsScrollTranslationY.fastRoundToInt(),
+                                        )
+                                    }
+                                    .onSizeChanged { viewModel.qsScrollHeight = it.height }
+                                    .padding(bottom = 8.dp)
+                                    .sysuiResTag(ResIdTags.qsScroll)
+                        ) {
+                            AxQsMixedGrid(
+                                viewModel = viewModel,
+                                toolbarViewModel = toolbarViewModel,
+                                axQsViewModel = axQsViewModel,
+                                mediaViewModel = axMediaViewModel,
+                                qqs = false,
+                                listening = isListening,
+                                brightnessSliderViewModel =
+                                    viewModel.containerViewModel.brightnessSliderViewModel,
+                                volumeSliderViewModel = volumeSliderViewModel,
+                                scrollState = scrollState,
+                                modifier =
+                                    Modifier.fillMaxSize()
+                                        .sysuiResTag(ResIdTags.quickSettingsPanel)
+                                        .graphicsLayer {},
+                            )
+                        }
+                    } else {
+                        StockQuickSettingsContent(
+                            isListening = isListening,
+                            layoutState = layoutState,
                         )
                     }
                 }
             }
             Spacer(Modifier.height { bottomContentPadding }.fillMaxWidth())
         }
+    }
+
+    /** Stock Android QQS content: brightness, tiles and media. Used when the custom style is off. */
+    @Composable
+    private fun ContentScope.StockQuickQuickSettingsContent(
+        isListening: () -> Boolean,
+        layoutState: SceneTransitionLayoutState,
+    ) {
+        Box(Modifier.padding(horizontal = qsHorizontalMargin())) {
+            QuickQuickSettingsLayout(
+                brightness = {
+                    if (viewModel.isBrightnessSliderVisible) {
+                        Element(Elements.BrightnessSlider, Modifier) {
+                            BrightnessSlider(viewModel, layoutState)
+                        }
+                    }
+                },
+                tiles = {
+                    QuickQuickSettings(
+                        viewModel = viewModel.quickQuickSettingsViewModel,
+                        listening = isListening,
+                    )
+                },
+                media = {
+                    if (viewModel.qqsMediaVisible) {
+                        MediaObject(
+                            mediaHost = viewModel.qqsMediaHost,
+                            modifier = Modifier.fillMaxWidth(),
+                            mediaViewModelFactory = viewModel.mediaViewModelFactory,
+                            mediaPresentationStyle =
+                                if (viewModel.qqsMediaInRow) {
+                                    MediaPresentationStyle.Default
+                                } else {
+                                    MediaPresentationStyle.Compressed
+                                },
+                            onSwipeToDismiss = viewModel::onMediaSwipeToDismiss,
+                            behavior = viewModel.qqsMediaUiBehavior,
+                            visible = { viewModel.qqsMediaVisible },
+                            location = Media.Location.QS,
+                            expansion = { viewModel.qqsMediaExpansion },
+                        )
+                    }
+                },
+                mediaInRow = viewModel.qqsMediaInRow,
+            )
+        }
+    }
+
+    /** Stock Android QS content: brightness, tile grid, media and footer. */
+    @Composable
+    private fun ContentScope.StockQuickSettingsContent(
+        isListening: () -> Boolean,
+        layoutState: SceneTransitionLayoutState,
+    ) {
+        Column(
+            modifier =
+                Modifier.fillMaxSize()
+                    .offset {
+                        IntOffset(x = 0, y = viewModel.qsScrollTranslationY.fastRoundToInt())
+                    }
+                    .onSizeChanged { viewModel.qsScrollHeight = it.height }
+                    .verticalScroll(scrollState)
+                    .padding(bottom = 8.dp)
+                    .sysuiResTag(ResIdTags.qsScroll)
+        ) {
+            Column(
+                modifier =
+                    Modifier.padding(horizontal = qsHorizontalMargin())
+                        .sysuiResTag(ResIdTags.quickSettingsPanel)
+            ) {
+                QuickSettingsLayout(
+                    brightness = {
+                        if (viewModel.isBrightnessSliderVisible) {
+                            Element(Elements.BrightnessSlider, Modifier) {
+                                BrightnessSlider(viewModel, layoutState)
+                            }
+                        }
+                    },
+                    tiles = {
+                        GridAnchor()
+                        TileGrid(
+                            viewModel = viewModel.containerViewModel.tileGridViewModel,
+                            modifier = Modifier.fillMaxWidth(),
+                            listening = isListening,
+                        )
+                    },
+                    media = {
+                        if (viewModel.qsMediaVisible) {
+                            MediaObject(
+                                mediaHost = viewModel.qsMediaHost,
+                                modifier = Modifier.fillMaxWidth(),
+                                mediaViewModelFactory = viewModel.mediaViewModelFactory,
+                                mediaPresentationStyle = MediaPresentationStyle.Default,
+                                onSwipeToDismiss = viewModel::onMediaSwipeToDismiss,
+                                behavior = viewModel.qsMediaUiBehavior,
+                                visible = { viewModel.qsMediaVisible },
+                                location = Media.Location.QS,
+                                expansion = { MediaHostState.EXPANDED },
+                            )
+                        }
+                    },
+                    mediaInRow = viewModel.qsMediaInRow,
+                )
+            }
+            Element(Elements.FooterActions, Modifier) {
+                Toolbar(
+                    viewModel = toolbarViewModel,
+                    isFullyVisible = { viewModel.isQsFullyExpanded && !viewModel.isEditing },
+                    modifier =
+                        Modifier.padding(horizontal = qsHorizontalMargin())
+                            .sysuiResTag(ResIdTags.qsFooterActions),
+                )
+            }
+        }
+    }
+
+    /** Stock Android edit mode. Used when the custom style is off. */
+    @Composable
+    private fun StockEditModeElement(modifier: Modifier = Modifier) {
+        EditMode(
+            viewModel = viewModel.containerViewModel.editModeViewModel,
+            modifier =
+                modifier.fillMaxWidth().padding(top = { viewModel.qqsHeaderHeight }),
+        )
     }
 
     @Composable
@@ -1112,7 +1282,7 @@ constructor(
             when {
                 isLandscape -> AxQuickSettingsLayoutDefaults.LandscapeHeaderTopPadding
                 else -> displayCutoutTopPadding
-            }  + axQsViewModel.headerTopMargin.dp
+            } + axQsViewModel.headerTopMargin.dp
         AxQuickSettingsHeader(
             viewModel = headerViewModel,
             isTransitioning = isTransitioning,
@@ -1133,6 +1303,7 @@ constructor(
     private fun quickSettingsContentTopPadding(): Dp {
         val isLandscape =
             LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        // In split shade the grid pads itself below the header (see AxQsMixedGrid).
         if (isLandscape && viewModel.isInSplitShade) {
             return 0.dp
         }
@@ -1161,7 +1332,8 @@ constructor(
         return displayCutoutTop + headerTopMargin + headerHeight + contentSpacing
     }
 
-    private fun useOverlayShadeHeader() = true
+    /** The overlay header replaces the stock shade header only in the Mistify custom style. */
+    private fun useOverlayShadeHeader() = axQsViewModel.customStyle
 
     private fun registerDumpable() {
         val instanceId = instanceProvider.getNextId()

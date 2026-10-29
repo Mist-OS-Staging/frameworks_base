@@ -52,6 +52,8 @@ constructor(
         )
     private val quickPanelOnLeft =
         repository.quickPanelOnLeft.stateIn(applicationScope, SharingStarted.Eagerly, false)
+    private val customStyle =
+        repository.customStyle.stateIn(applicationScope, SharingStarted.Eagerly, false)
 
     init {
         shadeAnimationInteractor.isAnyCloseAnimationRunning
@@ -64,7 +66,9 @@ constructor(
     }
 
     fun isSeparateShade(): Boolean =
-        panelMode.value == AxQsPanelMode.SEPARATE && !shadeModeInteractor.isSplitShade
+        customStyle.value &&
+             panelMode.value == AxQsPanelMode.SEPARATE &&
+             !shadeModeInteractor.isSplitShade
 
     fun isSeparateQuickPanelGesture(x: Float, width: Float): Boolean {
         val edgeWidth = width / 4f

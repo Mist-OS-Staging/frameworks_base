@@ -219,6 +219,14 @@ constructor(
             initialValue = true,
             source = repository.showWeather,
         )
+
+    val customStyle by
+        hydrator.hydratedStateOf(
+            traceName = "customStyle",
+            initialValue = repository.customStyle.value,
+            source = repository.customStyle,
+        )
+
     val headerTopMargin by
         hydrator.hydratedStateOf(
             traceName = "headerTopMargin",

@@ -82,6 +82,12 @@ constructor(
     val landscapeControlPositions: StateFlow<Map<String, AxQsGridPosition>> = positionsSetting(LANDSCAPE_CONTROL_POSITIONS)
     val splitShadeControlPositions: StateFlow<Map<String, AxQsGridPosition>> = positionsSetting(SPLIT_SHADE_CONTROL_POSITIONS)
 
+    val customStyle: StateFlow<Boolean> =
+        intSetting(QS_STYLE, QS_STYLE_STOCK)
+            .map { it == QS_STYLE_CUSTOM }
+            .distinctUntilChanged()
+            .stateIn(applicationScope, SharingStarted.Eagerly, false)
+
     val panelMode: StateFlow<AxQsPanelMode> =
         intSetting(PANEL_MODE, AxQsPanelMode.TOGETHER.settingValue)
             .map(AxQsPanelMode::fromSetting)
@@ -432,6 +438,9 @@ constructor(
         const val LANDSCAPE_CONTROL_POSITIONS = "ax_qs_landscape_control_positions"
         const val SPLIT_SHADE_CONTROL_POSITIONS = "ax_qs_split_shade_control_positions"
         const val SPLIT_SHADE_SPANS = "ax_qs_split_shade_spans"
+        const val QS_STYLE = "ax_qs_style"
+        const val QS_STYLE_STOCK = 0
+        const val QS_STYLE_CUSTOM = 1
         const val PANEL_MODE = "ax_qs_panel_mode"
         const val QUICK_PANEL_ON_LEFT = "ax_qs_quick_panel_on_left"
         const val PORTRAIT_QQS_CONTROL_COLUMNS = "ax_qqs_control_columns"
