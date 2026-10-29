@@ -225,6 +225,9 @@ constructor(
             initialValue = 0,
             source = repository.headerTopMargin,
         )
+
+    var overlayHeaderHeightPx by mutableStateOf(0)
+
     private val verticalSliderStyles by
         hydrator.hydratedStateOf(
             traceName = "verticalSliderStyles",

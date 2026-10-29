@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
@@ -273,9 +274,16 @@ internal fun ContentScope.AxQsMixedGrid(
                 maxWidth * AxQuickSettingsLayoutDefaults.LANDSCAPE_SIDE_PADDING_FRACTION
             val contentPadding = if (splitShade) splitShadePadding else portraitPadding
             val gridWidth = (maxWidth - contentPadding * 2).coerceAtLeast(0.dp)
+            val overlayHeaderHeight =
+                with(LocalDensity.current) { axQsViewModel.overlayHeaderHeightPx.toDp() }
             val contentTopPadding =
                 if (splitShade) {
-                    AxQuickSettingsLayoutDefaults.LandscapeHeaderHeight +
+                    maxOf(
+                        AxQuickSettingsLayoutDefaults.LandscapeHeaderHeight,
+                        AxQuickSettingsLayoutDefaults.LandscapeHeaderTopPadding +
+                            overlayHeaderHeight,
+                    ) +
+                        axQsViewModel.headerTopMargin.dp +
                         AxQuickSettingsLayoutDefaults.LandscapeHeaderContentSpacing
                 } else {
                     0.dp

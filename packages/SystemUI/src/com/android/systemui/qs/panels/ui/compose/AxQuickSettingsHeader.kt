@@ -509,6 +509,7 @@ object AxQuickSettingsLayoutDefaults {
     val LandscapeGridSpacing = 16.dp
     val LandscapeSplitGridSpacing = AxQsLayoutPadding.LANDSCAPE_SPLIT_GRID_SPACING_DP.dp
     val LandscapeHeaderContentSpacing = 8.dp
+    val LandscapeHeaderTopPadding = 4.dp
     val LandscapeHeaderHeight: Dp
         @Composable get() = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 }

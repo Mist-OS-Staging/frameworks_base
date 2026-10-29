@@ -156,6 +156,7 @@ import com.android.systemui.qs.composefragment.ui.toEditMode
 import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
 import com.android.systemui.qs.panels.ui.compose.AxQuickSettingsHeader
+import com.android.systemui.qs.panels.ui.compose.AxQuickSettingsLayoutDefaults
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.LocalAxQsExpansionProgress
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
@@ -1109,9 +1110,9 @@ constructor(
             LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val topPadding =
             when {
-                isLandscape -> 4.dp
-                else -> displayCutoutTopPadding + axQsViewModel.headerTopMargin.dp
-            }
+                isLandscape -> AxQuickSettingsLayoutDefaults.LandscapeHeaderTopPadding
+                else -> displayCutoutTopPadding
+            }  + axQsViewModel.headerTopMargin.dp
         AxQuickSettingsHeader(
             viewModel = headerViewModel,
             isTransitioning = isTransitioning,
@@ -1122,6 +1123,7 @@ constructor(
                     .onSizeChanged { size ->
                         if (size.height > 0) {
                             overlayHeaderHeightPx = size.height
+                            axQsViewModel.overlayHeaderHeightPx = size.height
                         }
                     },
         )
@@ -1129,11 +1131,18 @@ constructor(
 
     @Composable
     private fun quickSettingsContentTopPadding(): Dp {
-        if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        val isLandscape =
+            LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscape && viewModel.isInSplitShade) {
             return 0.dp
         }
+        val headerTopMargin = axQsViewModel.headerTopMargin.dp
         val displayCutoutTop =
-            WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+            if (isLandscape) {
+                AxQuickSettingsLayoutDefaults.LandscapeHeaderTopPadding
+            } else {
+                WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+            }
         val statusBarHeight =
             WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val density = LocalDensity.current
@@ -1143,7 +1152,13 @@ constructor(
             } else {
                 statusBarHeight + 24.dp
             }
-        return displayCutoutTop + headerHeight + QuickSettingsShade.Dimensions.ShortPadding
+        val contentSpacing =
+            if (isLandscape) {
+                AxQuickSettingsLayoutDefaults.LandscapeHeaderContentSpacing
+            } else {
+                QuickSettingsShade.Dimensions.ShortPadding
+            }
+        return displayCutoutTop + headerTopMargin + headerHeight + contentSpacing
     }
 
     private fun useOverlayShadeHeader() = true
